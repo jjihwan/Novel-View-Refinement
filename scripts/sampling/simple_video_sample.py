@@ -46,13 +46,13 @@ def sample(
         num_frames = 21
         num_steps = default(num_steps, 50)
         output_folder = default(output_folder, "outputs/simple_video_sample/sv3d_u/")
-        model_config = "scripts/sampling/configs/sv3d_u.yaml"
+        model_config = "configs/inference/sv3d_u.yaml"
         cond_aug = 1e-5
     elif version == "sv3d_p":
         num_frames = 21
         num_steps = default(num_steps, 50)
         output_folder = default(output_folder, "outputs/simple_video_sample/sv3d_p/")
-        model_config = "scripts/sampling/configs/sv3d_p.yaml"
+        model_config = "configs/inference/sv3d_p.yaml"
         cond_aug = 1e-5
         if isinstance(elevations_deg, float) or isinstance(elevations_deg, int):
             elevations_deg = [elevations_deg] * num_frames
