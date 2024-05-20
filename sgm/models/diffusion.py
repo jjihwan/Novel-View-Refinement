@@ -136,13 +136,13 @@ class DiffusionEngine(pl.LightningModule):
 
     @torch.no_grad()
     def encode_first_stage(self, x):
-        n_samples = default(self.en_and_decode_n_samples_a_time, x.shape[0])
-        n_rounds = math.ceil(x.shape[0] / n_samples)
+        n_samples = default(self.en_and_decode_n_samples_a_time, x.shape[0]) # 21
+        n_rounds = math.ceil(x.shape[0] / n_samples) # 1
         all_out = []
         with torch.autocast("cuda", enabled=not self.disable_first_stage_autocast):
             for n in range(n_rounds):
                 out = self.first_stage_model.encode(
-                    x[n * n_samples : (n + 1) * n_samples]
+                    x[n * n_samples : (n + 1) * n_samples] # [21, 3, 576, 576]
                 )
                 all_out.append(out)
         z = torch.cat(all_out, dim=0)
@@ -326,6 +326,55 @@ class DiffusionEngine(pl.LightningModule):
         z = self.encode_first_stage(x)
         log["reconstructions"] = self.decode_first_stage(z)
         log.update(self.log_conditionings(batch, N))
+
+        for k in c:
+            if isinstance(c[k], torch.Tensor):
+                c[k], uc[k] = map(lambda y: y[k][:N].to(self.device), (c, uc))
+
+        if sample:
+            with self.ema_scope("Plotting"):
+                samples = self.sample(
+                    c, shape=z.shape[1:], uc=uc, batch_size=N, **sampling_kwargs
+                )
+            samples = self.decode_first_stage(samples)
+            log["samples"] = samples
+        return log
+    
+
+    @torch.no_grad()
+    def log_videos(
+        self,
+        batch: Dict,
+        N: int = 8,
+        sample: bool = True,
+        ucg_keys: List[str] = None,
+        **kwargs,
+    ) -> Dict:
+        conditioner_input_keys = [e.input_key for e in self.conditioner.embedders]
+        if ucg_keys:
+            assert all(map(lambda x: x in conditioner_input_keys, ucg_keys)), (
+                "Each defined ucg key for sampling must be in the provided conditioner input keys,"
+                f"but we have {ucg_keys} vs. {conditioner_input_keys}"
+            )
+        else:
+            ucg_keys = conditioner_input_keys
+        log = dict()
+
+        x = self.get_input(batch)
+
+        c, uc = self.conditioner.get_unconditional_conditioning(
+            batch,
+            force_uc_zero_embeddings=ucg_keys
+            if len(self.conditioner.embedders) > 0
+            else [],
+        )
+
+        sampling_kwargs = {}
+
+        N = min(x.shape[0], N)
+        x = x.to(self.device)[:N]
+        log["inputs"] = x
+        z = self.encode_first_stage(x)
 
         for k in c:
             if isinstance(c[k], torch.Tensor):

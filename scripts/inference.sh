@@ -1,3 +1,4 @@
 python3 scripts/sampling/simple_video_sample.py \
                             --version sv3d_p \
-                            --input_path assets/1.jpg
+                            --input_path assets \
+                            --verbose True

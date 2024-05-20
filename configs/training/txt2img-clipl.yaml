@@ -182,3 +182,4 @@ lightning:
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
     max_epochs: 1000
+    # precision: 'bf16'

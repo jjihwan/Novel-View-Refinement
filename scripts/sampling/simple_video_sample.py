@@ -182,6 +182,8 @@ def sample(
                     T=num_frames,
                     device=device,
                 )
+                breakpoint()
+
                 c, uc = model.conditioner.get_unconditional_conditioning(
                     batch,
                     batch_uc=batch_uc,
@@ -190,6 +192,7 @@ def sample(
                         "cond_frames_without_noise",
                     ],
                 )
+                breakpoint()
 
                 for k in ["crossattn", "concat"]:
                     uc[k] = repeat(uc[k], "b ... -> b t ...", t=num_frames)
@@ -205,6 +208,7 @@ def sample(
                 ).to(device)
                 additional_model_inputs["num_video_frames"] = batch["num_video_frames"]
 
+                breakpoint()
                 def denoiser(input, sigma, c):
                     return model.denoiser(
                         model.model, input, sigma, c, **additional_model_inputs
@@ -232,8 +236,16 @@ def sample(
                     .numpy()
                     .astype(np.uint8)
                 )
+
                 video_path = os.path.join(output_folder, f"{base_count:06d}.mp4")
-                imageio.mimwrite(video_path, vid)
+                # imageio.mimwrite(video_path, vid)
+                writer = imageio.get_writer(video_path, fps=10)
+                for frame in vid:
+                    writer.append_data(frame)
+                writer.close()
+                
+                video_path_gif = os.path.join(output_folder, f"{base_count:06d}.gif")
+                imageio.mimwrite(video_path_gif, vid, duration=0.1)
 
 
 def get_unique_embedder_keys_from_conditioner(conditioner):
