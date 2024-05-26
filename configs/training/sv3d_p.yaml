@@ -5,7 +5,7 @@ model:
     scale_factor: 0.18215
     disable_first_stage_autocast: True
     ckpt_path: checkpoints/sv3d_p.safetensors
-    input_key: videos
+    input_key: video_latent
 
     denoiser_config:
       target: sgm.modules.diffusionmodules.denoiser.Denoiser
@@ -150,7 +150,7 @@ model:
 data:
   target: sgm.data.dataset.SV3DDataModuleFromConfig
   params:
-    data_dir: dataset/train
+    data_root: dataset/
     batch_size: 1
     num_workers: 4
 

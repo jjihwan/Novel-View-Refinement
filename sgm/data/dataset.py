@@ -12,6 +12,7 @@ import os
 import random
 import numpy as np
 import torchvision
+from glob import glob
 
 try:
     from sdata import create_dataset, create_dummy_dataset, create_loader
@@ -88,7 +89,7 @@ class StableDataModuleFromConfig(LightningDataModule):
         return create_loader(self.test_datapipeline, **self.test_config.loader)
 
 class VideoDataset(Dataset):
-    def __init__(self, num_samples=None, width=576, height=576, sample_frames=21, data_path=None):
+    def __init__(self, num_samples=None, width=576, height=576, sample_frames=21, data_root='dataset'):
         """
         Args:
             num_samples (int): Number of samples in the dataset.
@@ -98,8 +99,9 @@ class VideoDataset(Dataset):
         self.width = width
         self.height = height
         self.sample_frames = sample_frames
-        self.data_path = data_path
-        self.num_samples = num_samples if num_samples else len(os.listdir(data_path))
+        self.data_root = data_root
+        self.num_samples = num_samples if num_samples else len(os.listdir(data_root))
+        self.num_samples = 2
         self.v_decoder = decord.VideoReader
         
         elevations_deg = [10.0] * sample_frames
@@ -143,15 +145,20 @@ class VideoDataset(Dataset):
         Returns:
             dict: A dictionary containing the 'pixel_values' tensor of shape (16, channels, 320, 512).
         """
-        files = os.listdir(self.data_path)
+        data_dirs = sorted(glob(self.data_root + "/*"))
 
-        # Filter out files that end with .mp4
-        mp4_files = [os.path.join(self.data_path, file) for file in files if file.endswith('.mp4')]
-        if len(mp4_files) == 0:
+        if len(data_dirs) == 0:
             raise ValueError(
-                f"--dataset_path '{self.data_path}' does not contain any .mp4 files.")
-        print(mp4_files)
-        video = self.decord_read(mp4_files[idx])
+                f"--dataset_path '{self.video_root}' does not contain any .mp4 files.")
+
+        mp4_file = os.path.join(data_dirs[idx], "orbit_frame.mp4")
+        latent_file = mp4_file.replace(".mp4", ".pt")
+
+        print(mp4_file, latent_file)
+        video_latent = torch.load(latent_file)
+        print(video_latent.shape)
+
+        video = self.decord_read(mp4_file)
         video = torchvision.transforms.functional.resize(video, (self.height, self.width))
         #normalize the video to range [-1,1]
         video = video[0] / 127.5 - 1 # (B, F, C, H, W)
@@ -162,7 +169,7 @@ class VideoDataset(Dataset):
         image_only_indicator = torch.zeros(self.sample_frames)
         num_video_frames = self.sample_frames
 
-        return {'videos': video, # latent
+        return {'video_latent': video_latent, # latent
                 'cond_frames_without_noise': cond_frames_without_noise, # image
                 'cond_frames': cond_frames, # image
                 'cond_aug': cond_sigmas, ## constant?
@@ -176,18 +183,18 @@ class VideoDataset(Dataset):
 class SV3DDataModuleFromConfig(LightningDataModule):
     def __init__(
         self,
-        data_dir: str,
+        data_root: str,
         batch_size: int,
         num_workers: int = 0,
     ):
         super().__init__()
-        self.data_dir = data_dir
+        self.data_root = data_root
         self.batch_size = batch_size
         self.num_workers = num_workers
 
     def setup(self, stage: str) -> None:
-        self.dataset = VideoDataset(data_path=self.data_dir)
-        self.train_data, self.val_data, self.test_data = random_split(self.dataset, [1, 1, 0])
+        self.dataset = VideoDataset(data_root=self.data_root)
+        self.train_data, self.val_data, self.test_data = random_split(self.dataset, [1, 1, 0], generator=torch.Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)

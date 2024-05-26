@@ -1,8 +1,9 @@
 checkpoints/
 outputs/
 dataset/
+dataset_origin/
 logs/
-src/sdata/
+src
 
 __pycache__/
 *.pyc
