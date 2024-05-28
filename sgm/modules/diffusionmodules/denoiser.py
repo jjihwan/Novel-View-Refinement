@@ -6,6 +6,7 @@ import torch.nn as nn
 from ...util import append_dims, instantiate_from_config
 from .denoiser_scaling import DenoiserScaling
 from .discretizer import Discretization
+from einops import repeat, rearrange
 
 
 class Denoiser(nn.Module):
@@ -23,16 +24,75 @@ class Denoiser(nn.Module):
     def forward(
         self,
         network: nn.Module,
-        input: torch.Tensor,
+        input: torch.Tensor, # [BF,4,72,72]
         sigma: torch.Tensor,
-        cond: Dict,
+        cond: Dict, #concat:[BF,4,72,72], crossattn:[BF,1,1024], vector:[BF,1280]
         **additional_model_inputs,
     ) -> torch.Tensor:
+        print()
+        print("[denoiser forward]")
+        print(input.shape)
+        for k, v in cond.items():
+            if isinstance(v, torch.Tensor):
+                print(k, v.shape)
+
+        print("sigma")
+        print(sigma.shape)
+
         sigma = self.possibly_quantize_sigma(sigma)
         sigma_shape = sigma.shape
         sigma = append_dims(sigma, input.ndim)
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
+        print()
+        print("network input")
+        print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
+
+        return (
+            network(input * c_in, c_noise, cond, **additional_model_inputs) * c_out
+            + input * c_skip
+        )
+    
+
+class SV3DDenoiser(Denoiser):
+    def __init__(self, scaling_config: Dict):
+        super().__init__(scaling_config)
+
+    def forward(
+        self,
+        network: nn.Module,
+        input: torch.Tensor, # [B,F,C,72,72]
+        sigma: torch.Tensor,
+        cond: Dict, #concat:[B,4,72,72], crossattn:[B,1,1024], vector:[B,1280]
+        **additional_model_inputs,
+    ) -> torch.Tensor:
+        # print()
+        # print("[SV3D denoiser forward]")
+
+        # print(input.shape)
+        # for k, v in cond.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
+        b, f = input.shape[:2]
+        input = rearrange(input, "b f ... -> (b f) ...")
+
+        for k in ["crossattn", "concat"]:
+            cond[k] = repeat(cond[k], "b ... -> b f ...", f=f)
+            cond[k] = rearrange(cond[k], "b f ... -> (b f) ...", f=f)
+
+        additional_model_inputs["image_only_indicator"] = torch.zeros((b,f)).to(input.device)
+        additional_model_inputs["num_video_frames"] = f
+
+        sigma = self.possibly_quantize_sigma(sigma)
+        sigma_shape = sigma.shape
+        sigma = append_dims(sigma, input.ndim)
+        c_skip, c_out, c_in, c_noise = self.scaling(sigma)
+        c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
+        
+        network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
+        # print(network_output.shape, input.shape)
+        return network_output * c_out + input * c_skip
+    
         return (
             network(input * c_in, c_noise, cond, **additional_model_inputs) * c_out
             + input * c_skip

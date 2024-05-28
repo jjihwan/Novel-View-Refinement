@@ -7,6 +7,7 @@ import torch
 from omegaconf import ListConfig, OmegaConf
 from safetensors.torch import load_file as load_safetensors
 from torch.optim.lr_scheduler import LambdaLR
+from einops import rearrange
 
 from ..modules import UNCONDITIONAL_CONFIG
 from ..modules.autoencoding.temporal_ae import VideoDecoder
@@ -136,6 +137,11 @@ class DiffusionEngine(pl.LightningModule):
 
     @torch.no_grad()
     def encode_first_stage(self, x):
+        is_video = len(x.shape) == 5
+        if is_video:
+            b, t, c, h, w = x.shape
+            x = x.view(b * t, c, h, w)
+        
         n_samples = default(self.en_and_decode_n_samples_a_time, x.shape[0]) # 21
         n_rounds = math.ceil(x.shape[0] / n_samples) # 1
         all_out = []
@@ -146,10 +152,22 @@ class DiffusionEngine(pl.LightningModule):
                 )
                 all_out.append(out)
         z = torch.cat(all_out, dim=0)
+        if is_video:
+            z = z.view(b, t, 4, h, w)
         z = self.scale_factor * z
         return z
 
     def forward(self, x, batch):
+        # print()
+        # print("DiffusionEngine forward")
+        # print(x.shape)
+
+        # for k, v in batch.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
+        #     else:
+        #         print(k, v)
+        
         loss = self.loss_fn(self.model, self.denoiser, self.conditioner, x, batch)
         loss_mean = loss.mean()
         loss_dict = {"loss": loss_mean}
@@ -360,7 +378,21 @@ class DiffusionEngine(pl.LightningModule):
             ucg_keys = conditioner_input_keys
         log = dict()
 
+        print()
+        print("log videos, batch")
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                print(k, v.shape)
+            else:
+                print(k, v)
+
         x = self.get_input(batch)
+        print("x", x.shape)
+        
+        batch["num_video_frames"] = x.shape[1]
+        batch['cond_aug'] = batch['cond_aug'].squeeze()
+        batch['polars_rad'] = batch['polars_rad'].squeeze()
+        batch['azimuths_rad'] = batch['azimuths_rad'].squeeze()
 
         c, uc = self.conditioner.get_unconditional_conditioning(
             batch,
@@ -369,22 +401,53 @@ class DiffusionEngine(pl.LightningModule):
             else [],
         )
 
+        # print()
+        # print("log videos, c")
+        # print(x.shape)
+        # for k, v in c.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
+        #     else:
+        #         print(k, v)
+
+        b, f, _, _, _ = x.shape
+
+
         sampling_kwargs = {}
+        sampling_kwargs["image_only_indicator"] = torch.zeros((b, f))
+        sampling_kwargs["num_video_frames"] = f
 
         N = min(x.shape[0], N)
         x = x.to(self.device)[:N]
-        log["inputs"] = x
+        log["inputs"] = x.squeeze(0)
         z = self.encode_first_stage(x)
 
         for k in c:
             if isinstance(c[k], torch.Tensor):
-                c[k], uc[k] = map(lambda y: y[k][:N].to(self.device), (c, uc))
+                # c[k], uc[k] = map(lambda y: y[k][:N].to(self.device), (c, uc))
+                c[k], uc[k] = map(lambda y: y[k].to(self.device), (c, uc))
+        # print()
+        # print("log videos, c, after map")
+        # print(x.shape)
+        # for k, v in c.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
+        #     else:
+        #         print(k, v)
 
         if sample:
             with self.ema_scope("Plotting"):
-                samples = self.sample(
-                    c, shape=z.shape[1:], uc=uc, batch_size=N, **sampling_kwargs
-                )
+                # samples = self.sample(
+                #     c, shape=z.shape[1:], uc=uc, batch_size=N, **sampling_kwargs
+                # )
+                def denoiser(input, sigma, c):
+                    input = rearrange(input, "(b f) ... -> b f ...", f=f)
+                    return self.denoiser(
+                        self.model, input, sigma, c, **sampling_kwargs
+                    )
+                randn = torch.randn(*z.shape[1:], device=self.device)
+                samples = self.sampler(denoiser, randn, cond=c, uc=c)
+
             samples = self.decode_first_stage(samples)
             log["samples"] = samples
         return log

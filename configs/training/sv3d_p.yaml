@@ -8,7 +8,7 @@ model:
     input_key: video_latent
 
     denoiser_config:
-      target: sgm.modules.diffusionmodules.denoiser.Denoiser
+      target: sgm.modules.diffusionmodules.denoiser.SV3DDenoiser
       params:
         scaling_config:
           target: sgm.modules.diffusionmodules.denoiser_scaling.VScalingWithEDMcNoise
@@ -48,6 +48,7 @@ model:
             open_clip_embedding_config:
               target: sgm.modules.encoders.modules.FrozenOpenCLIPImageEmbedder
               params:
+                # init_device: "cuda"
                 freeze: True
 
         - input_key: cond_frames
@@ -80,19 +81,19 @@ model:
 
         - input_key: cond_aug
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
             outdim: 256
 
         - input_key: polars_rad
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
             outdim: 512
 
         - input_key: azimuths_rad
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
             outdim: 512
 
@@ -135,6 +136,9 @@ model:
     sampler_config:
       target: sgm.modules.diffusionmodules.sampling.EulerEDMSampler
       params:
+        verbose: True
+        num_steps: 50
+
         discretization_config:
           target: sgm.modules.diffusionmodules.discretizer.EDMDiscretization
           params:
@@ -167,4 +171,4 @@ lightning:
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
     max_epochs: 1000
-    precision: 'fp16'
+    precision: 'mixed-16'

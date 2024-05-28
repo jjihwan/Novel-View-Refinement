@@ -23,6 +23,17 @@ pip3 install -e git+https://github.com/Stability-AI/datapipelines.git@main#egg=s
 ```
 
 
+## Get checkpoints
+Store them as following structure:
+```
+cd Novel-View-Refinement
+    .
+    └── checkpoints
+        └── sv3d_p.safetensors
+        └── sv3d_u.safetensors # might not be used.
+```
+
+
 ## Training
 ```shell
 sh scripts/sv3d_finetune.sh
@@ -30,6 +41,7 @@ sh scripts/sv3d_finetune.sh
 
 
 ## Inference
+Store the input images in `assets`
 ```shell
 sh scripts/inference.sh
 ```

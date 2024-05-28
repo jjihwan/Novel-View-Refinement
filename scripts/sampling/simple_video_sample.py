@@ -182,7 +182,11 @@ def sample(
                     T=num_frames,
                     device=device,
                 )
-                breakpoint()
+                for k, v in batch.items():
+                    if isinstance(v, torch.Tensor):
+                        print(k, v.shape)
+                    else:
+                        print(k, v)
 
                 c, uc = model.conditioner.get_unconditional_conditioning(
                     batch,
@@ -192,7 +196,6 @@ def sample(
                         "cond_frames_without_noise",
                     ],
                 )
-                breakpoint()
 
                 for k in ["crossattn", "concat"]:
                     uc[k] = repeat(uc[k], "b ... -> b t ...", t=num_frames)
@@ -200,7 +203,8 @@ def sample(
                     c[k] = repeat(c[k], "b ... -> b t ...", t=num_frames)
                     c[k] = rearrange(c[k], "b t ... -> (b t) ...", t=num_frames)
 
-                randn = torch.randn(shape, device=device)
+                randn = torch.randn(shape, device=device) # [21, 4, 72, 72]
+                print("randn", randn.shape)
 
                 additional_model_inputs = {}
                 additional_model_inputs["image_only_indicator"] = torch.zeros(
@@ -208,7 +212,6 @@ def sample(
                 ).to(device)
                 additional_model_inputs["num_video_frames"] = batch["num_video_frames"]
 
-                breakpoint()
                 def denoiser(input, sigma, c):
                     return model.denoiser(
                         model.model, input, sigma, c, **additional_model_inputs

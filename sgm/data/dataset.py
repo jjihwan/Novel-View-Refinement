@@ -110,6 +110,9 @@ class VideoDataset(Dataset):
         self.azimuths_rad = [np.deg2rad((a - azimuths_deg[-1]) % 360) for a in azimuths_deg]
         self.azimuths_rad[:-1].sort()
 
+        self.polars_rad = torch.tensor(self.polars_rad)
+        self.azimuths_rad = torch.tensor(self.azimuths_rad)
+
 
 
     def __len__(self):
@@ -154,30 +157,36 @@ class VideoDataset(Dataset):
         mp4_file = os.path.join(data_dirs[idx], "orbit_frame.mp4")
         latent_file = mp4_file.replace(".mp4", ".pt")
 
-        print(mp4_file, latent_file)
         video_latent = torch.load(latent_file)
-        print(video_latent.shape)
 
         video = self.decord_read(mp4_file)
         video = torchvision.transforms.functional.resize(video, (self.height, self.width))
         #normalize the video to range [-1,1]
-        video = video[0] / 127.5 - 1 # (B, F, C, H, W)
+        first_frame = video[0] / 127.5 - 1 # (1, C, H, W)
 
-        cond_frames_without_noise = video[[0]]
+        cond_frames_without_noise = first_frame
         cond_sigmas = self.rand_log_normal(shape=[1,], loc=-3.0, scale=0.5)
         cond_frames = torch.rand_like(cond_frames_without_noise) * cond_sigmas + cond_frames_without_noise
-        image_only_indicator = torch.zeros(self.sample_frames)
-        num_video_frames = self.sample_frames
 
-        return {'video_latent': video_latent, # latent
+        # image_only_indicator = torch.zeros(self.sample_frames)
+        # num_video_frames = self.sample_frames
+        cond_sigmas = cond_sigmas.repeat(self.sample_frames)
+        
+        output_dict= {'video_latent': video_latent, # latent
                 'cond_frames_without_noise': cond_frames_without_noise, # image
                 'cond_frames': cond_frames, # image
                 'cond_aug': cond_sigmas, ## constant?
                 'polars_rad': self.polars_rad,
                 'azimuths_rad': self.azimuths_rad,
-                'image_only_indicator': image_only_indicator,
-                'num_video_frames': num_video_frames
+                # 'image_only_indicator': image_only_indicator,
+                # 'num_video_frames': num_video_frames
                 }
+        print()
+        print("[dataloader]")
+        for k, v in output_dict.items():
+            if isinstance(v, torch.Tensor):
+                print(k, v.shape)
+        return output_dict
     
 
 class SV3DDataModuleFromConfig(LightningDataModule):

@@ -481,14 +481,14 @@ class VideoLogger(Callback):
     def __init__(
         self,
         batch_frequency,
-        max_images,
+        max_videos,
         clamp=True,
         increase_log_steps=True,
         rescale=True,
         disabled=False,
         log_on_batch_idx=False,
         log_first_step=False,
-        log_images_kwargs=None,
+        log_videos_kwargs=None,
         log_before_first_step=False,
         enable_autocast=True,
     ):
@@ -496,14 +496,14 @@ class VideoLogger(Callback):
         self.enable_autocast = enable_autocast
         self.rescale = rescale
         self.batch_freq = batch_frequency
-        self.max_images = max_images
+        self.max_videos = max_videos
         self.log_steps = [2**n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
             self.log_steps = [self.batch_freq]
         self.clamp = clamp
         self.disabled = disabled
         self.log_on_batch_idx = log_on_batch_idx
-        self.log_images_kwargs = log_images_kwargs if log_images_kwargs else {}
+        self.log_videos_kwargs = log_videos_kwargs if log_videos_kwargs else {}
         self.log_first_step = log_first_step
         self.log_before_first_step = log_before_first_step
 
@@ -563,15 +563,15 @@ class VideoLogger(Callback):
                     )
 
     @rank_zero_only
-    def log_vid(self, pl_module, batch, batch_idx, split="train"):
+    def log_vid(self, pl_module, batch, batch_idx, split="valid"):
         check_idx = batch_idx if self.log_on_batch_idx else pl_module.global_step
         if (
             self.check_frequency(check_idx)
-            and hasattr(pl_module, "log_images")  # batch_idx % self.batch_freq == 0
-            and callable(pl_module.log_images)
+            and hasattr(pl_module, "log_videos")  # batch_idx % self.batch_freq == 0
+            and callable(pl_module.log_videos)
             and
             # batch_idx > 5 and
-            self.max_images > 0
+            self.max_videos > 0
         ):
             logger = type(pl_module.logger)
             is_train = pl_module.training
@@ -584,12 +584,12 @@ class VideoLogger(Callback):
                 "cache_enabled": torch.is_autocast_cache_enabled(),
             }
             with torch.no_grad(), torch.cuda.amp.autocast(**gpu_autocast_kwargs):
-                images = pl_module.log_images(
-                    batch, split=split, **self.log_images_kwargs
+                images = pl_module.log_videos(
+                    batch, split=split, **self.log_videos_kwargs
                 )
 
             for k in images:
-                N = min(images[k].shape[0], self.max_images)
+                N = min(images[k].shape[0], self.max_videos)
                 if not isheatmap(images[k]):
                     images[k] = images[k][:N]
                 if isinstance(images[k], torch.Tensor):
@@ -950,7 +950,16 @@ if __name__ == "__main__":
             # },
             "video_logger": {
                 "target": "train_sv3d.VideoLogger",
-                "params": {"batch_frequency": 1000, "max_images": 4, "clamp": True},
+                "params": {
+                    "batch_frequency": 1000,
+                    "max_videos": 1,
+                    "clamp": True,
+                    "log_videos_kwargs": {
+                        "ucg_keys":[
+                            "cond_frames",
+                            "cond_frames_without_noise"
+                        ]
+                    }},
             },
             "learning_rate_logger": {
                 "target": "pytorch_lightning.callbacks.LearningRateMonitor",

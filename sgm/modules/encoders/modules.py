@@ -139,6 +139,7 @@ class GeneralConditioner(nn.Module):
                 emb_out = [emb_out]
             for emb in emb_out:
                 out_key = self.OUTPUT_DIM2KEYS[emb.dim()]
+
                 if embedder.ucg_rate > 0.0 and embedder.legacy_ucg_val is None:
                     emb = (
                         expand_dims_like(
@@ -169,7 +170,15 @@ class GeneralConditioner(nn.Module):
         batch_uc: Optional[Dict] = None,
         force_uc_zero_embeddings: Optional[List[str]] = None,
         force_cond_zero_embeddings: Optional[List[str]] = None,
-    ):
+    ):  
+        # print()
+        # print("[get_unconditional_conditioning]")
+        # for k, v in batch_c.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
+        #     else:
+        #         print(k, v)
+        
         if force_uc_zero_embeddings is None:
             force_uc_zero_embeddings = []
         ucg_rates = list()
@@ -637,7 +646,7 @@ class FrozenOpenCLIPImageEmbedder(AbstractEmbModel):
             param.requires_grad = False
 
     @autocast
-    def forward(self, image, no_dropout=False):
+    def forward(self, image, no_dropout=False): # image: (B, C, H, W)
         z = self.encode_with_vision_transformer(image)
         tokens = None
         if self.output_tokens:
@@ -690,9 +699,10 @@ class FrozenOpenCLIPImageEmbedder(AbstractEmbModel):
             return z_pad, z_pad[:, 0, ...]
         return z
 
-    def encode_with_vision_transformer(self, img):
+    def encode_with_vision_transformer(self, img): # img: (B, C, H, W)
         # if self.max_crops > 0:
         #    img = self.preprocess_by_cropping(img)
+        print("encode_with_vision_transformer", img.shape)
         if img.dim() == 5:
             assert self.max_crops == img.shape[1]
             img = rearrange(img, "b n c h w -> (b n) c h w")
@@ -927,6 +937,25 @@ class ConcatTimestepEmbedderND(AbstractEmbModel):
         emb = self.timestep(x)
         emb = rearrange(emb, "(b d) d2 -> b (d d2)", b=b, d=dims, d2=self.outdim)
         return emb
+    
+class SV3DConcatTimestepEmbedderND(ConcatTimestepEmbedderND):
+    """embeds each dimension independently and concatenates them"""
+
+    def __init__(self, outdim):
+        super().__init__(outdim)
+
+    def forward(self, x):
+        if x.ndim == 2: #
+            x = rearrange(x, "b d -> (b d)") #
+        if x.ndim == 1:
+            x = x[:, None]
+
+        assert len(x.shape) == 2
+        b, dims = x.shape[0], x.shape[1]
+        x = rearrange(x, "b d -> (b d)")
+        emb = self.timestep(x)
+        emb = rearrange(emb, "(b d) d2 -> b (d d2)", b=b, d=dims, d2=self.outdim)
+        return emb
 
 
 class GaussianEncoder(Encoder, AbstractEmbModel):
@@ -1038,7 +1067,7 @@ class FrozenOpenCLIPImagePredictionEmbedder(AbstractEmbModel):
         self.n_copies = n_copies
         self.open_clip = instantiate_from_config(open_clip_embedding_config)
 
-    def forward(self, vid):
+    def forward(self, vid): # vid: (B, C, H, W)
         vid = self.open_clip(vid)
         vid = rearrange(vid, "(b t) d -> b t d", t=self.n_cond_frames)
         vid = repeat(vid, "b t d -> (b s) t d", s=self.n_copies)
