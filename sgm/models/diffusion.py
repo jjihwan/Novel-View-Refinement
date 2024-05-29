@@ -15,7 +15,7 @@ from ..modules.diffusionmodules.wrappers import OPENAIUNETWRAPPER
 from ..modules.ema import LitEma
 from ..util import (default, disabled_train, get_obj_from_str,
                     instantiate_from_config, log_txt_as_img)
-
+import wandb
 
 class DiffusionEngine(pl.LightningModule):
     def __init__(
@@ -154,17 +154,19 @@ class DiffusionEngine(pl.LightningModule):
         z = torch.cat(all_out, dim=0)
         if is_video:
             z = z.view(b, t, 4, h, w)
+            # z = z.to(x.dtype)
         z = self.scale_factor * z
+
         return z
 
     def forward(self, x, batch):
         # print()
-        # print("DiffusionEngine forward")
-        # print(x.shape)
+        # print("[DiffusionEngine forward]")
+        # print(x.shape, x.dtype)
 
         # for k, v in batch.items():
         #     if isinstance(v, torch.Tensor):
-        #         print(k, v.shape)
+        #         print(k, v.shape, v.dtype)
         #     else:
         #         print(k, v)
         
@@ -183,19 +185,27 @@ class DiffusionEngine(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss, loss_dict = self.shared_step(batch)
 
-        self.log_dict(
-            loss_dict, prog_bar=True, logger=True, on_step=True, on_epoch=False
-        )
+        # self.log_dict(
+        #     loss_dict, prog_bar=True, logger=True, on_step=True, on_epoch=False
+        # )
 
-        self.log(
-            "global_step",
-            self.global_step,
-            prog_bar=True,
-            logger=True,
-            on_step=True,
-            on_epoch=False,
-        )
+        # self.log(
+        #     "global_step",
+        #     self.global_step,
+        #     prog_bar=False,
+        #     logger=True,
+        #     on_step=True,
+        #     on_epoch=False,
+        # )
 
+        wandb.log(
+            {
+                "loss": loss,
+                "global_step": self.global_step,
+                "epoch": self.current_epoch,
+                "lr": self.optimizers().param_groups[0]["lr"]
+            }
+        )
         if self.scheduler_config is not None:
             lr = self.optimizers().param_groups[0]["lr"]
             self.log(
@@ -378,8 +388,8 @@ class DiffusionEngine(pl.LightningModule):
             ucg_keys = conditioner_input_keys
         log = dict()
 
-        print()
-        print("log videos, batch")
+        # print()
+        # print("log videos, batch")
         for k, v in batch.items():
             if isinstance(v, torch.Tensor):
                 print(k, v.shape)
@@ -387,7 +397,7 @@ class DiffusionEngine(pl.LightningModule):
                 print(k, v)
 
         x = self.get_input(batch)
-        print("x", x.shape)
+        # print("x", x.shape)
         
         batch["num_video_frames"] = x.shape[1]
         batch['cond_aug'] = batch['cond_aug'].squeeze()

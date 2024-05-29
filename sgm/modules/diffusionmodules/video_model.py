@@ -453,12 +453,29 @@ class VideoUNet(nn.Module):
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional -> no, relax this TODO"
         hs = []
+        # print()
+        # print("[VideoUNet forward]")
+        # print("x", x.dtype)
+        # print("timesteps", timesteps.dtype)
+        # print("context", context.dtype)
+        # print("y", y.dtype)
+        # print("num_video_frames", num_video_frames)
+        # print("image_only_indicator", image_only_indicator.dtype)
+
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        # if t_emb.dtype != self.time_embed[0].weight.dtype:
+        #     print("converting t_emb to", self.time_embed[0].weight.dtype)
+        #     t_emb = t_emb.to(self.time_embed[0].weight.dtype)
         emb = self.time_embed(t_emb)
 
         if self.num_classes is not None:
             assert y.shape[0] == x.shape[0]
+            # if y.dtype != self.label_emb[0][0].weight.dtype:
+            #     print("converting y to", self.label_emb[0][0].weight.dtype)
+            #     y = y.to(self.label_emb[0][0].weight.dtype)
             emb = emb + self.label_emb(y)
+
+        # emb = emb.to(x.dtype)
 
         h = x
         for module in self.input_blocks:

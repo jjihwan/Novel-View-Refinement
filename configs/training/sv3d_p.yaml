@@ -160,15 +160,16 @@ data:
 
 
 
-lightning:
+lightning: # lightning_config
   modelcheckpoint:
     params:
       every_n_train_steps: 500
       
-  trainer:
+  trainer: # trainer_config
     devices: 0,
     benchmark: True
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
     max_epochs: 1000
-    precision: 'mixed-16'
+    # strategy: "deepspeed_stage_3"
+    precision: '16-mixed'

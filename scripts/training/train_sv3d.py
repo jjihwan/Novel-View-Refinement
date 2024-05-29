@@ -659,7 +659,7 @@ def init_wandb(save_dir, opt, config, group_name, name_str):
     else:
         wandb.init(
             project=opt.projectname,
-            config=config,
+            # config=config,
             settings=wandb.Settings(code_dir="./sgm"),
             group=group_name,
             name=name_str,
@@ -948,19 +948,19 @@ if __name__ == "__main__":
             #     "target": "train_sv3d.ImageLogger",
             #     "params": {"batch_frequency": 1000, "max_images": 4, "clamp": True},
             # },
-            "video_logger": {
-                "target": "train_sv3d.VideoLogger",
-                "params": {
-                    "batch_frequency": 1000,
-                    "max_videos": 1,
-                    "clamp": True,
-                    "log_videos_kwargs": {
-                        "ucg_keys":[
-                            "cond_frames",
-                            "cond_frames_without_noise"
-                        ]
-                    }},
-            },
+            # "video_logger": {
+            #     "target": "train_sv3d.VideoLogger",
+            #     "params": {
+            #         "batch_frequency": 1000,
+            #         "max_videos": 1,
+            #         "clamp": True,
+            #         "log_videos_kwargs": {
+            #             "ucg_keys":[
+            #                 "cond_frames",
+            #                 "cond_frames_without_noise"
+            #             ]
+            #         }},
+            # },
             "learning_rate_logger": {
                 "target": "pytorch_lightning.callbacks.LearningRateMonitor",
                 "params": {

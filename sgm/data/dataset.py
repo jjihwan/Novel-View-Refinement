@@ -101,7 +101,7 @@ class VideoDataset(Dataset):
         self.sample_frames = sample_frames
         self.data_root = data_root
         self.num_samples = num_samples if num_samples else len(os.listdir(data_root))
-        self.num_samples = 2
+        # self.num_samples = 2
         self.v_decoder = decord.VideoReader
         
         elevations_deg = [10.0] * sample_frames
@@ -181,11 +181,11 @@ class VideoDataset(Dataset):
                 # 'image_only_indicator': image_only_indicator,
                 # 'num_video_frames': num_video_frames
                 }
-        print()
-        print("[dataloader]")
-        for k, v in output_dict.items():
-            if isinstance(v, torch.Tensor):
-                print(k, v.shape)
+        # print()
+        # print("[dataloader]")
+        # for k, v in output_dict.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
         return output_dict
     
 
@@ -203,7 +203,7 @@ class SV3DDataModuleFromConfig(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         self.dataset = VideoDataset(data_root=self.data_root)
-        self.train_data, self.val_data, self.test_data = random_split(self.dataset, [1, 1, 0], generator=torch.Generator().manual_seed(0))
+        self.train_data, self.val_data, self.test_data = random_split(self.dataset, (int(0.8*len(self.dataset)), int(0.1*len(self.dataset)), int(0.1*len(self.dataset))), generator=torch.Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)

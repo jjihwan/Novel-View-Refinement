@@ -29,24 +29,24 @@ class Denoiser(nn.Module):
         cond: Dict, #concat:[BF,4,72,72], crossattn:[BF,1,1024], vector:[BF,1280]
         **additional_model_inputs,
     ) -> torch.Tensor:
-        print()
-        print("[denoiser forward]")
-        print(input.shape)
-        for k, v in cond.items():
-            if isinstance(v, torch.Tensor):
-                print(k, v.shape)
+        # print()
+        # print("[denoiser forward]")
+        # print(input.shape)
+        # for k, v in cond.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape)
 
-        print("sigma")
-        print(sigma.shape)
+        # print("sigma")
+        # print(sigma.shape)
 
         sigma = self.possibly_quantize_sigma(sigma)
         sigma_shape = sigma.shape
         sigma = append_dims(sigma, input.ndim)
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
-        print()
-        print("network input")
-        print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
+        # print()
+        # print("network input")
+        # print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
 
         return (
             network(input * c_in, c_noise, cond, **additional_model_inputs) * c_out
@@ -68,11 +68,11 @@ class SV3DDenoiser(Denoiser):
     ) -> torch.Tensor:
         # print()
         # print("[SV3D denoiser forward]")
-
-        # print(input.shape)
+        # print("input", input.shape, input.dtype)
+        # print("sigma", sigma.shape, sigma.dtype)    
         # for k, v in cond.items():
         #     if isinstance(v, torch.Tensor):
-        #         print(k, v.shape)
+        #         print(k, v.shape, v.dtype)
         b, f = input.shape[:2]
         input = rearrange(input, "b f ... -> (b f) ...")
 
@@ -80,7 +80,7 @@ class SV3DDenoiser(Denoiser):
             cond[k] = repeat(cond[k], "b ... -> b f ...", f=f)
             cond[k] = rearrange(cond[k], "b f ... -> (b f) ...", f=f)
 
-        additional_model_inputs["image_only_indicator"] = torch.zeros((b,f)).to(input.device)
+        additional_model_inputs["image_only_indicator"] = torch.zeros((b,f)).to(input.device, input.dtype)
         additional_model_inputs["num_video_frames"] = f
 
         sigma = self.possibly_quantize_sigma(sigma)
@@ -88,6 +88,7 @@ class SV3DDenoiser(Denoiser):
         sigma = append_dims(sigma, input.ndim)
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
+
         
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)

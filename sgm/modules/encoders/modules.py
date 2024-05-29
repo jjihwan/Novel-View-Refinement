@@ -139,6 +139,11 @@ class GeneralConditioner(nn.Module):
                 emb_out = [emb_out]
             for emb in emb_out:
                 out_key = self.OUTPUT_DIM2KEYS[emb.dim()]
+                # print()
+                # print("[General Conditioner]")
+                # print(embedder.__class__.__name__)
+                # print(out_key)
+                # print(emb.shape, emb.dtype)
 
                 if embedder.ucg_rate > 0.0 and embedder.legacy_ucg_val is None:
                     emb = (
@@ -702,7 +707,7 @@ class FrozenOpenCLIPImageEmbedder(AbstractEmbModel):
     def encode_with_vision_transformer(self, img): # img: (B, C, H, W)
         # if self.max_crops > 0:
         #    img = self.preprocess_by_cropping(img)
-        print("encode_with_vision_transformer", img.shape)
+        # print("encode_with_vision_transformer", img.shape)
         if img.dim() == 5:
             assert self.max_crops == img.shape[1]
             img = rearrange(img, "b n c h w -> (b n) c h w")
@@ -955,6 +960,8 @@ class SV3DConcatTimestepEmbedderND(ConcatTimestepEmbedderND):
         x = rearrange(x, "b d -> (b d)")
         emb = self.timestep(x)
         emb = rearrange(emb, "(b d) d2 -> b (d d2)", b=b, d=dims, d2=self.outdim)
+        
+        # emb = emb.to(x.dtype) ### ToDo: Check if this is necessary
         return emb
 
 

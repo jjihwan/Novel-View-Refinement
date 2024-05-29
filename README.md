@@ -22,6 +22,11 @@ pip3 install .
 pip3 install -e git+https://github.com/Stability-AI/datapipelines.git@main#egg=sdata
 ```
 
+#### Install `deepspeed` for training
+```shell
+pip3 install deepspeed
+```
+
 
 ## Get checkpoints
 Store them as following structure:
@@ -34,7 +39,7 @@ cd Novel-View-Refinement
 ```
 
 
-## Training
+## Training (WIP)
 ```shell
 sh scripts/sv3d_finetune.sh
 ```

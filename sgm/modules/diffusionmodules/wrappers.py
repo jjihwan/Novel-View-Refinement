@@ -24,14 +24,20 @@ class OpenAIWrapper(IdentityWrapper):
     def forward(
         self, x: torch.Tensor, t: torch.Tensor, c: dict, **kwargs
     ) -> torch.Tensor:
-        # print()
-        # print("[OpenAIWrapper]")
         # print("x", x.shape)
         # print("t", t.shape)
         # for k, v in c.items():
         #     print(k, v.shape)
         
         x = torch.cat((x, c.get("concat", torch.Tensor([]).type_as(x))), dim=1)
+
+        # print()
+        # print("[OpenAIWrapper]")
+        # print(x.dtype)
+        # print(t.dtype)
+        # for k, v in c.items():
+        #     print(k, v.dtype)
+
         return self.diffusion_model(
             x,
             timesteps=t,
