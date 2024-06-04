@@ -135,7 +135,7 @@ def sample(
         input_image = Image.fromarray((rgb * 255).astype(np.uint8))
 
 
-        image = ToTensor()(input_image)
+        image = ToTensor()(input_image) # 0~1
         image = image * 2.0 - 1.0
 
         image = image.unsqueeze(0).to(device)

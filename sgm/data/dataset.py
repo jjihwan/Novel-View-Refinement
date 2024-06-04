@@ -159,7 +159,7 @@ class VideoDataset(Dataset):
 
         video_latent = torch.load(latent_file)
 
-        video = self.decord_read(mp4_file)
+        video = self.decord_read(mp4_file) # 0~255
         video = torchvision.transforms.functional.resize(video, (self.height, self.width))
         #normalize the video to range [-1,1]
         first_frame = video[0] / 127.5 - 1 # (1, C, H, W)
@@ -203,13 +203,10 @@ class SV3DDataModuleFromConfig(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         self.dataset = VideoDataset(data_root=self.data_root)
-        self.train_data, self.val_data, self.test_data = random_split(self.dataset, (int(0.8*len(self.dataset)), int(0.1*len(self.dataset)), int(0.1*len(self.dataset))), generator=torch.Generator().manual_seed(0))
+        self.train_data, self.val_data = random_split(self.dataset, (int(0.9*len(self.dataset)), int(0.1*len(self.dataset))), generator=torch.Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
-
-    def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
+        return DataLoader(self.val_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)

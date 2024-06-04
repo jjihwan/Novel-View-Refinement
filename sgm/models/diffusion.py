@@ -137,10 +137,12 @@ class DiffusionEngine(pl.LightningModule):
 
     @torch.no_grad()
     def encode_first_stage(self, x):
+        ### Added
         is_video = len(x.shape) == 5
         if is_video:
             b, t, c, h, w = x.shape
             x = x.view(b * t, c, h, w)
+        ###
         
         n_samples = default(self.en_and_decode_n_samples_a_time, x.shape[0]) # 21
         n_rounds = math.ceil(x.shape[0] / n_samples) # 1
@@ -152,9 +154,11 @@ class DiffusionEngine(pl.LightningModule):
                 )
                 all_out.append(out)
         z = torch.cat(all_out, dim=0)
+        
+        ### Added
         if is_video:
             z = z.view(b, t, 4, h, w)
-            # z = z.to(x.dtype)
+        ###
         z = self.scale_factor * z
 
         return z

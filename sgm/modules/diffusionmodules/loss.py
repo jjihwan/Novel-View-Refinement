@@ -83,6 +83,7 @@ class StandardDiffusionLoss(nn.Module):
         sigmas_bc = append_dims(sigmas, input.ndim)
         noised_input = self.get_noised_input(sigmas_bc, noise, input)
 
+        ### Denoiser of Training
         model_output = denoiser(
             network, noised_input, sigmas, cond, **additional_model_inputs
         )

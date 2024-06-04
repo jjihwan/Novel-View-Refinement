@@ -6,6 +6,7 @@ model:
     disable_first_stage_autocast: True
     ckpt_path: checkpoints/sv3d_p.safetensors
     input_key: video_latent
+    # batch2model_keys: ["image_only_indicator", "num_video_frames"]
 
     denoiser_config:
       target: sgm.modules.diffusionmodules.denoiser.SV3DDenoiser
