@@ -177,7 +177,7 @@ class VideoDataset(Dataset):
 
         cond_frames_without_noise = last_frame
         # cond_sigmas = self.rand_log_normal(shape=[1,], loc=-3.0, scale=0.5)
-        cond_sigmas = torch.Tensor([1e-5])
+        cond_sigmas = torch.Tensor([1e-5]) ## ToDo
         cond_frames = torch.rand_like(cond_frames_without_noise) * cond_sigmas + cond_frames_without_noise
 
         image_only_indicator = torch.zeros(self.sample_frames)
