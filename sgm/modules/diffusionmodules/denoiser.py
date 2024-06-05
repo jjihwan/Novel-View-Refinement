@@ -93,12 +93,12 @@ class SV3DDenoiser(Denoiser):
         additional_model_inputs["image_only_indicator"] = torch.zeros((b,f)).to(input.device, input.dtype)
         additional_model_inputs["num_video_frames"] = f
 
-        print("[SV3D denoiser forward]")
-        print(input.shape, input.mean(), input.std())
-        for k, v in cond.items():
-            if isinstance(v, torch.Tensor):
-                print(k, v.shape, v.mean(), v.std())
-        print("sigma", sigma.shape, sigma)
+        # print("[SV3D denoiser forward]")
+        # print(input.shape, input.mean(), input.std())
+        # for k, v in cond.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v.shape, v.mean(), v.std())
+        # print("sigma", sigma.shape, sigma)
 
         sigma = self.possibly_quantize_sigma(sigma)
         sigma_shape = sigma.shape

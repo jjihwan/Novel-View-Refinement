@@ -157,7 +157,7 @@ data:
   params:
     data_root: dataset_fanta/
     batch_size: 1
-    num_workers: 4
+    num_workers: 0
 
 
 
@@ -165,6 +165,8 @@ lightning: # lightning_config
   modelcheckpoint:
     params:
       every_n_train_steps: 500
+      save_top_k: 0
+      save_on_train_epoch_end: False
       
   trainer: # trainer_config
     devices: 0,

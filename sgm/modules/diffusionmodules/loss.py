@@ -91,10 +91,10 @@ class StandardDiffusionLoss(nn.Module):
 
         loss = self.get_loss(model_output, input, w)
         
-        save_dir = "/home/kjh26720/code/novel-view-refinement/model_output/"
-        idx = len(glob(save_dir + "*.pt"))
-        print(idx)
-        torch.save(model_output, save_dir + f"{idx}.pt")
+        # save_dir = "/home/kjh26720/code/novel-view-refinement/model_output/"
+        # idx = len(glob(save_dir + "*.pt"))
+        # print(idx)
+        # torch.save(model_output, save_dir + f"{idx}.pt")
         return loss
 
     def get_loss(self, model_output, target, w):
