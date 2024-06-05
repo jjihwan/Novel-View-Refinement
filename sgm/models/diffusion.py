@@ -189,9 +189,9 @@ class DiffusionEngine(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss, loss_dict = self.shared_step(batch)
 
-        # self.log_dict(
-        #     loss_dict, prog_bar=True, logger=True, on_step=True, on_epoch=False
-        # )
+        self.log_dict(
+            loss_dict, prog_bar=True, logger=True, on_step=True, on_epoch=False
+        )
 
         # self.log(
         #     "global_step",

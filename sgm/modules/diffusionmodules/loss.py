@@ -7,7 +7,7 @@ from ...modules.autoencoding.lpips.loss.lpips import LPIPS
 from ...modules.encoders.modules import GeneralConditioner
 from ...util import append_dims, instantiate_from_config
 from .denoiser import Denoiser
-
+from glob import glob
 
 class StandardDiffusionLoss(nn.Module):
     def __init__(
@@ -88,7 +88,14 @@ class StandardDiffusionLoss(nn.Module):
             network, noised_input, sigmas, cond, **additional_model_inputs
         )
         w = append_dims(self.loss_weighting(sigmas), input.ndim)
-        return self.get_loss(model_output, input, w)
+
+        loss = self.get_loss(model_output, input, w)
+        
+        save_dir = "/home/kjh26720/code/novel-view-refinement/model_output/"
+        idx = len(glob(save_dir + "*.pt"))
+        print(idx)
+        torch.save(model_output, save_dir + f"{idx}.pt")
+        return loss
 
     def get_loss(self, model_output, target, w):
         if self.loss_type == "l2":

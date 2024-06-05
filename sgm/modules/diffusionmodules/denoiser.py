@@ -31,13 +31,28 @@ class Denoiser(nn.Module):
     ) -> torch.Tensor:
         # print()
         # print("[denoiser forward]")
-        # print(input.shape)
+        # print(input.shape, input.mean(), input.std())
         # for k, v in cond.items():
         #     if isinstance(v, torch.Tensor):
-        #         print(k, v.shape)
+        #         print(k, v.shape, v.mean(), v.std())
 
         # print("sigma")
-        # print(sigma.shape)
+        # print(sigma.shape, sigma)
+
+        # print("[denoiser forward], uc")
+        # print(input[:21].shape, input[:21].mean(), input[:21].std())
+        # print(sigma[:21].shape, sigma[:21].mean(), sigma[:21].std())
+        # for k, v in cond.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v[:21].shape, v[:21].mean(), v[:21].std())
+        
+        # print("[denoiser forward], c")
+        # print("input", input[21:].shape, input[21:].mean(), input[21:].std())
+        # print("cond")
+        # for k, v in cond.items():
+        #     if isinstance(v, torch.Tensor):
+        #         print(k, v[21:].shape, v[21:].mean(), v[21:].std())
+        # print("sigma", sigma[21:].shape, sigma[21:].mean(), sigma[21:].std())
 
         sigma = self.possibly_quantize_sigma(sigma)
         sigma_shape = sigma.shape
@@ -67,12 +82,7 @@ class SV3DDenoiser(Denoiser):
         **additional_model_inputs,
     ) -> torch.Tensor:
         # print()
-        # print("[SV3D denoiser forward]")
-        # print("input", input.shape, input.dtype)
-        # print("sigma", sigma.shape, sigma.dtype)    
-        # for k, v in cond.items():
-        #     if isinstance(v, torch.Tensor):
-        #         print(k, v.shape, v.dtype)
+
         b, f = input.shape[:2]
         input = rearrange(input, "b f ... -> (b f) ...")
 
@@ -82,6 +92,13 @@ class SV3DDenoiser(Denoiser):
 
         additional_model_inputs["image_only_indicator"] = torch.zeros((b,f)).to(input.device, input.dtype)
         additional_model_inputs["num_video_frames"] = f
+
+        print("[SV3D denoiser forward]")
+        print(input.shape, input.mean(), input.std())
+        for k, v in cond.items():
+            if isinstance(v, torch.Tensor):
+                print(k, v.shape, v.mean(), v.std())
+        print("sigma", sigma.shape, sigma)
 
         sigma = self.possibly_quantize_sigma(sigma)
         sigma_shape = sigma.shape

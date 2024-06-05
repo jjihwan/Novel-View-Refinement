@@ -6,7 +6,6 @@ model:
     disable_first_stage_autocast: True
     ckpt_path: checkpoints/sv3d_p.safetensors
     input_key: video_latent
-    # batch2model_keys: ["image_only_indicator", "num_video_frames"]
 
     denoiser_config:
       target: sgm.modules.diffusionmodules.denoiser.SV3DDenoiser
@@ -40,19 +39,19 @@ model:
       target: sgm.modules.GeneralConditioner
       params:
         emb_models:
-        - input_key: cond_frames_without_noise
+        - input_key: cond_frames_without_noise # crossattn
           is_trainable: False
           target: sgm.modules.encoders.modules.FrozenOpenCLIPImagePredictionEmbedder
           params:
             n_cond_frames: 1
             n_copies: 1
-            open_clip_embedding_config:
+            open_clip_embedding_config: 
               target: sgm.modules.encoders.modules.FrozenOpenCLIPImageEmbedder
               params:
                 # init_device: "cuda"
                 freeze: True
 
-        - input_key: cond_frames
+        - input_key: cond_frames # concat
           is_trainable: False
           target: sgm.modules.encoders.modules.VideoPredictionEmbedderWithEncoder
           params:
@@ -80,19 +79,19 @@ model:
                 lossconfig:
                   target: torch.nn.Identity
 
-        - input_key: cond_aug
+        - input_key: cond_aug # vector
           is_trainable: False
           target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
             outdim: 256
 
-        - input_key: polars_rad
+        - input_key: polars_rad # vector
           is_trainable: False
           target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
             outdim: 512
 
-        - input_key: azimuths_rad
+        - input_key: azimuths_rad # vector
           is_trainable: False
           target: sgm.modules.encoders.modules.SV3DConcatTimestepEmbedderND
           params:
@@ -133,6 +132,7 @@ model:
           params:
             p_mean: 0.7
             p_std: 1.6
+        batch2model_keys: ["image_only_indicator", "num_video_frames"] ###
 
     sampler_config:
       target: sgm.modules.diffusionmodules.sampling.EulerEDMSampler
@@ -155,7 +155,7 @@ model:
 data:
   target: sgm.data.dataset.SV3DDataModuleFromConfig
   params:
-    data_root: dataset/
+    data_root: dataset_fanta/
     batch_size: 1
     num_workers: 4
 

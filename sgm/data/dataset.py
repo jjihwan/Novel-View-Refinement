@@ -12,7 +12,9 @@ import os
 import random
 import numpy as np
 import torchvision
+from torchvision.transforms import ToTensor
 from glob import glob
+from PIL import Image
 
 try:
     from sdata import create_dataset, create_dummy_dataset, create_loader
@@ -101,7 +103,7 @@ class VideoDataset(Dataset):
         self.sample_frames = sample_frames
         self.data_root = data_root
         self.num_samples = num_samples if num_samples else len(os.listdir(data_root))
-        # self.num_samples = 2
+        print(f"num_samples: {self.num_samples}")
         self.v_decoder = decord.VideoReader
         
         elevations_deg = [10.0] * sample_frames
@@ -155,21 +157,31 @@ class VideoDataset(Dataset):
                 f"--dataset_path '{self.video_root}' does not contain any .mp4 files.")
 
         mp4_file = os.path.join(data_dirs[idx], "orbit_frame.mp4")
+        last_frame_path = os.path.join(data_dirs[idx], "orbit_frame_0020.png")
         latent_file = mp4_file.replace(".mp4", ".pt")
 
         video_latent = torch.load(latent_file)
 
-        video = self.decord_read(mp4_file) # 0~255
-        video = torchvision.transforms.functional.resize(video, (self.height, self.width))
-        #normalize the video to range [-1,1]
-        first_frame = video[0] / 127.5 - 1 # (1, C, H, W)
+        # video = self.decord_read(mp4_file) # 0~255
+        # video = torchvision.transforms.functional.resize(video, (self.height, self.width))
+        # #normalize the video to range [-1,1]
+        # last_frame = video[-1] / 127.5 - 1 # (1, C, H, W)
 
-        cond_frames_without_noise = first_frame
-        cond_sigmas = self.rand_log_normal(shape=[1,], loc=-3.0, scale=0.5)
+        rgba = Image.open(last_frame_path)
+        rgba_arr = np.array(rgba) / 255.0
+        rgb = rgba_arr[...,:3] * rgba_arr[...,-1:] + (1.0 - rgba_arr[...,-1:])
+        last_frame = Image.fromarray((rgb * 255).astype(np.uint8))
+
+        last_frame = ToTensor()(last_frame)
+        last_frame = last_frame * 2.0 - 1.0
+
+        cond_frames_without_noise = last_frame
+        # cond_sigmas = self.rand_log_normal(shape=[1,], loc=-3.0, scale=0.5)
+        cond_sigmas = torch.Tensor([1e-5])
         cond_frames = torch.rand_like(cond_frames_without_noise) * cond_sigmas + cond_frames_without_noise
 
-        # image_only_indicator = torch.zeros(self.sample_frames)
-        # num_video_frames = self.sample_frames
+        image_only_indicator = torch.zeros(self.sample_frames)
+        num_video_frames = self.sample_frames
         cond_sigmas = cond_sigmas.repeat(self.sample_frames)
         
         output_dict= {'video_latent': video_latent, # latent
@@ -178,8 +190,8 @@ class VideoDataset(Dataset):
                 'cond_aug': cond_sigmas, ## constant?
                 'polars_rad': self.polars_rad,
                 'azimuths_rad': self.azimuths_rad,
-                # 'image_only_indicator': image_only_indicator,
-                # 'num_video_frames': num_video_frames
+                'image_only_indicator': image_only_indicator,
+                'num_video_frames': num_video_frames
                 }
         # print()
         # print("[dataloader]")
@@ -203,10 +215,12 @@ class SV3DDataModuleFromConfig(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         self.dataset = VideoDataset(data_root=self.data_root)
-        self.train_data, self.val_data = random_split(self.dataset, (int(0.9*len(self.dataset)), int(0.1*len(self.dataset))), generator=torch.Generator().manual_seed(0))
+        # self.train_data, self.val_data = random_split(self.dataset, (int(1*len(self.dataset)), int(0*len(self.dataset))), generator=torch.Generator().manual_seed(0))
+        self.train_data = self.dataset
+        return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
+        return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)
