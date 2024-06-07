@@ -29,11 +29,13 @@ model:
         use_linear_in_transformer: True
         transformer_depth: 1
         context_dim: 1024
-        spatial_transformer_attn_type: softmax-xformers
+        spatial_transformer_attn_type: softmax #TODO
         extra_ff_mix_layer: True
         use_spatial_context: True
         merge_strategy: learned_with_images
         video_kernel_size: [3, 1, 1]
+        save_attention: False
+        blend_attention: True
 
     conditioner_config:
       target: sgm.modules.GeneralConditioner
@@ -65,7 +67,7 @@ model:
                 embed_dim: 4
                 monitor: val/rec_loss
                 ddconfig:
-                  attn_type: vanilla-xformers
+                  attn_type: vanilla #TODO
                   double_z: True
                   z_channels: 4
                   resolution: 256
@@ -109,7 +111,7 @@ model:
         decoder_config:
           target: sgm.modules.diffusionmodules.model.Decoder
           params:
-            attn_type: vanilla-xformers
+            attn_type: vanilla #TODO
             double_z: True
             z_channels: 4
             resolution: 256
@@ -155,7 +157,7 @@ model:
 data:
   target: sgm.data.dataset.SV3DDataModuleFromConfig
   params:
-    data_root: dataset_refined/
+    data_root: dataset_fanta/
     batch_size: 1
     num_workers: 0
 
@@ -168,7 +170,7 @@ lightning: # lightning_config
       save_on_train_epoch_end: False
       
   trainer: # trainer_config
-    devices: 0,
+    devices: 1,
     benchmark: True
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1

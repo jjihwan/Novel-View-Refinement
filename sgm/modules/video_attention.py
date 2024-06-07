@@ -166,6 +166,8 @@ class SpatialVideoTransformer(SpatialTransformer):
         disable_self_attn=False,
         disable_temporal_crossattention=False,
         max_time_embed_period: int = 10000,
+        save_attention=False,
+        blend_attention=False,
     ):
         super().__init__(
             in_channels,
@@ -178,6 +180,8 @@ class SpatialVideoTransformer(SpatialTransformer):
             context_dim=context_dim,
             use_linear=use_linear,
             disable_self_attn=disable_self_attn,
+            save_attention=save_attention,
+            blend_attention=blend_attention,
         )
         self.time_depth = time_depth
         self.depth = depth

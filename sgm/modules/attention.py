@@ -253,6 +253,7 @@ class SpatialSelfAttention(nn.Module):
 
 
 class CrossAttention(nn.Module):
+    attention_counter = 0 # for saving the attention weights
     def __init__(
         self,
         query_dim,
@@ -261,6 +262,8 @@ class CrossAttention(nn.Module):
         dim_head=64,
         dropout=0.0,
         backend=None,
+        blend_attention=False,
+        save_attention=False,
     ):
         super().__init__()
         inner_dim = dim_head * heads
@@ -277,7 +280,34 @@ class CrossAttention(nn.Module):
             nn.Linear(inner_dim, query_dim), nn.Dropout(dropout)
         )
         self.backend = backend
-
+        
+        self.blend_attention = blend_attention
+        self.save_attention = save_attention
+        
+        if self.blend_attention:
+            self.permutation_mat = nn.Linear(21, 21, bias=False)
+            perm = []
+            for i in range(21):
+                vec = torch.zeros(21)
+                vec[i - 10] = 1.0
+                perm.append(vec)
+            
+            perm = torch.stack(perm)
+            self.permutation_mat.weight.data = nn.Parameter(perm)
+    
+            self.blend = nn.Linear(21, 21, bias=None)
+            identity_matrix = torch.eye(21)
+            self.blend.weight.data = nn.Parameter(identity_matrix)
+            
+    def get_attention_score(self, q, k, mask=None):
+        attn_score = torch.einsum("b h i d, b h j d -> b h i j", q, k) * self.scale
+        if exists(mask):
+            mask = rearrange(mask, "b ... -> b (...)")
+            max_neg_value = -torch.finfo(attn_score.dtype).max
+            mask = repeat(mask, "b j -> (b h) () j", h=self.heads)
+            attn_score.masked_fill_(~mask, max_neg_value)
+        return attn_score
+    
     def forward(
         self,
         x,
@@ -285,7 +315,10 @@ class CrossAttention(nn.Module):
         mask=None,
         additional_tokens=None,
         n_times_crossframe_attn_in_self=0,
+        
     ):
+        # breakpoint()
+        CrossAttention.attention_counter += 1
         h = self.heads
 
         if additional_tokens is not None:
@@ -330,10 +363,21 @@ class CrossAttention(nn.Module):
         """
         ## new
         with sdp_kernel(**BACKEND_MAP[self.backend]):
-            # print("dispatching into backend", self.backend, "q/k/v shape: ", q.shape, k.shape, v.shape)
-            out = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask
-            )  # scale is dim_head ** -0.5 per default
+            print("dispatching into backend", self.backend, "q/k/v shape: ", q.shape, k.shape, v.shape)
+            if self.save_attention and (q.shape[0] % 21 == 0): #TODO: make the code more general
+                #first let's only save the spatial attentions
+                attention_score = self.get_attention_score(q, k, mask).detach().to("cpu")
+                print("saving attention", CrossAttention.attention_counter)
+                torch.save(attention_score, f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
+                
+            if self.blend_attention and (q.shape[0] % 21 == 0): #TODO: make the code more general
+                previous_attn_weights = torch.load(f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
+                new_attention_score = self.permutation_mat(previous_attn_weights) + self.blend(self.get_attention_score(q, k, mask))
+                out = torch.einsum("b n i j, b n j d -> b n i d", new_attention_score, v)
+            else:
+                out = F.scaled_dot_product_attention(
+                    q, k, v, attn_mask=mask
+                )  # scale is dim_head ** -0.5 per default
 
         del q, k, v
         out = rearrange(out, "b h n d -> b n (h d)", h=h)
@@ -378,12 +422,13 @@ class MemoryEfficientCrossAttention(nn.Module):
         additional_tokens=None,
         n_times_crossframe_attn_in_self=0,
     ):
+        breakpoint()
         if additional_tokens is not None:
             # get the number of masked tokens at the beginning of the output sequence
             n_tokens_to_mask = additional_tokens.shape[1]
             # add additional token
             x = torch.cat([additional_tokens, x], dim=1)
-        q = self.to_q(x)
+        q = self.to_q(x) #(21, 5184,320)
         context = default(context, x)
         k = self.to_k(context)
         v = self.to_v(context)
@@ -433,6 +478,7 @@ class MemoryEfficientCrossAttention(nn.Module):
                     )
                 )
             out = torch.cat(out, 0)
+            breakpoint()
         else:
             out = xformers.ops.memory_efficient_attention(
                 q, k, v, attn_bias=None, op=self.attention_op
@@ -471,6 +517,8 @@ class BasicTransformerBlock(nn.Module):
         disable_self_attn=False,
         attn_mode="softmax",
         sdp_backend=None,
+        save_attention=False,
+        blend_attention=False,
     ):
         super().__init__()
         assert attn_mode in self.ATTENTION_MODES
@@ -507,6 +555,8 @@ class BasicTransformerBlock(nn.Module):
             dropout=dropout,
             context_dim=context_dim if self.disable_self_attn else None,
             backend=sdp_backend,
+            save_attention=save_attention,
+            blend_attention=blend_attention,
         )  # is a self-attention if not self.disable_self_attn
         self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff)
         self.attn2 = attn_cls(
@@ -516,6 +566,8 @@ class BasicTransformerBlock(nn.Module):
             dim_head=d_head,
             dropout=dropout,
             backend=sdp_backend,
+            save_attention=save_attention,
+            blend_attention=blend_attention,
         )  # is self-attn if context is none
         self.norm1 = nn.LayerNorm(dim)
         self.norm2 = nn.LayerNorm(dim)
@@ -551,6 +603,7 @@ class BasicTransformerBlock(nn.Module):
     def _forward(
         self, x, context=None, additional_tokens=None, n_times_crossframe_attn_in_self=0
     ):
+        # breakpoint()
         x = (
             self.attn1(
                 self.norm1(x),
@@ -562,6 +615,7 @@ class BasicTransformerBlock(nn.Module):
             )
             + x
         )
+        # breakpoint()
         x = (
             self.attn2(
                 self.norm2(x), context=context, additional_tokens=additional_tokens
@@ -640,6 +694,8 @@ class SpatialTransformer(nn.Module):
         use_checkpoint=True,
         # sdp_backend=SDPBackend.FLASH_ATTENTION
         sdp_backend=None,
+        save_attention=False,
+        blend_attention=False,
     ):
         super().__init__()
         logpy.debug(
@@ -686,6 +742,8 @@ class SpatialTransformer(nn.Module):
                     attn_mode=attn_type,
                     checkpoint=use_checkpoint,
                     sdp_backend=sdp_backend,
+                    save_attention=save_attention,
+                    blend_attention=blend_attention,
                 )
                 for d in range(depth)
             ]

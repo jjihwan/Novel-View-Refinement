@@ -115,6 +115,8 @@ class VideoUNet(nn.Module):
         adm_in_channels: Optional[int] = None,
         disable_temporal_crossattention: bool = False,
         max_ddpm_temb_period: int = 10000,
+        blend_attention=False,
+        save_attention=False,
     ):
         super().__init__()
         assert context_dim is not None
@@ -147,6 +149,8 @@ class VideoUNet(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
+        self.save_attention = save_attention
+        self.blend_attention = blend_attention
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -203,6 +207,8 @@ class VideoUNet(nn.Module):
             context_dim=None,
             use_checkpoint=False,
             disabled_sa=False,
+            save_attention=False,
+            blend_attention=False,
         ):
             return SpatialVideoTransformer(
                 ch,
@@ -222,6 +228,8 @@ class VideoUNet(nn.Module):
                 disable_self_attn=disabled_sa,
                 disable_temporal_crossattention=disable_temporal_crossattention,
                 max_time_embed_period=max_ddpm_temb_period,
+                save_attention=save_attention,
+                blend_attention=blend_attention,
             )
 
         def get_resblock(
@@ -286,6 +294,8 @@ class VideoUNet(nn.Module):
                             context_dim=context_dim,
                             use_checkpoint=use_checkpoint,
                             disabled_sa=False,
+                            save_attention=save_attention,
+                            blend_attention=blend_attention,
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -350,6 +360,8 @@ class VideoUNet(nn.Module):
                 depth=transformer_depth_middle,
                 context_dim=context_dim,
                 use_checkpoint=use_checkpoint,
+                save_attention=save_attention,
+                blend_attention=blend_attention,
             ),
             get_resblock(
                 merge_factor=merge_factor,
@@ -401,6 +413,8 @@ class VideoUNet(nn.Module):
                             context_dim=context_dim,
                             use_checkpoint=use_checkpoint,
                             disabled_sa=False,
+                            save_attention=save_attention,
+                            blend_attention=blend_attention,
                         )
                     )
                 if level and i == num_res_blocks:

@@ -106,7 +106,6 @@ class SV3DDenoiser(Denoiser):
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
 
-        
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)
         return network_output * c_out + input * c_skip
