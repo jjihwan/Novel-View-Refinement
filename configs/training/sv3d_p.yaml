@@ -12,6 +12,7 @@ model:
       params:
         scaling_config:
           target: sgm.modules.diffusionmodules.denoiser_scaling.VScalingWithEDMcNoise
+        blend_feature_maps: True #Used for blending Feature maps for NVR
 
     network_config:
       target: sgm.modules.diffusionmodules.video_model.VideoUNet
@@ -135,6 +136,10 @@ model:
             p_mean: 0.7
             p_std: 1.6
         batch2model_keys: ["image_only_indicator", "num_video_frames"] ###
+        discretization_config:
+          target: sgm.modules.diffusionmodules.discretizer.EDMDiscretization
+          params:
+            sigma_max: 700.0 ##Only used for discrete sampling, not used when this is NOne
 
     sampler_config:
       target: sgm.modules.diffusionmodules.sampling.EulerEDMSampler
@@ -166,14 +171,14 @@ data:
 lightning: # lightning_config
   modelcheckpoint:
     params:
-      every_n_train_steps: 250
+      every_n_train_steps: 100
       save_on_train_epoch_end: False
       
   trainer: # trainer_config
-    devices: 1,
+    devices: 0,
     benchmark: True
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
-    max_epochs: 10
+    max_epochs: 200
     # strategy: "deepspeed_stage_3"
     precision: '16-mixed'

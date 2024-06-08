@@ -95,7 +95,6 @@ class EDMSampler(SingleStepDiffusionSampler):
         if gamma > 0:
             eps = torch.randn_like(x) * self.s_noise
             x = x + eps * append_dims(sigma_hat**2 - sigma**2, x.ndim) ** 0.5
-
         denoised = self.denoise(x, denoiser, sigma_hat, cond, uc)
         d = to_d(x, sigma_hat, denoised)
         dt = append_dims(next_sigma - sigma_hat, x.ndim)
@@ -110,13 +109,14 @@ class EDMSampler(SingleStepDiffusionSampler):
         x, s_in, sigmas, num_sigmas, cond, uc = self.prepare_sampling_loop(
             x, cond, uc, num_steps
         )
-
         for i in self.get_sigma_gen(num_sigmas):
+            
             gamma = (
                 min(self.s_churn / (num_sigmas - 1), 2**0.5 - 1)
                 if self.s_tmin <= sigmas[i] <= self.s_tmax
                 else 0.0
             )
+            # breakpoint()
             x = self.sampler_step(
                 s_in * sigmas[i],
                 s_in * sigmas[i + 1],

@@ -10,6 +10,7 @@ model:
       params:
         scaling_config:
           target: sgm.modules.diffusionmodules.denoiser_scaling.VScalingWithEDMcNoise
+        save_attention_weights: True #turn it on to save attention weights, may lead to memory issues
 
     network_config:
       target: sgm.modules.diffusionmodules.video_model.VideoUNet

@@ -1,19 +1,24 @@
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 import torch
 import torch.nn as nn
+import os
 
 from ...util import append_dims, instantiate_from_config
 from .denoiser_scaling import DenoiserScaling
 from .discretizer import Discretization
 from einops import repeat, rearrange
 
+from ..attention import CrossAttention
+
 
 class Denoiser(nn.Module):
-    def __init__(self, scaling_config: Dict):
+    timestep_counter = 0
+    def __init__(self, scaling_config: Dict, save_attention_weights: bool = False):
         super().__init__()
 
         self.scaling: DenoiserScaling = instantiate_from_config(scaling_config)
+        self.save_attention_weights = save_attention_weights
 
     def possibly_quantize_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
         return sigma
@@ -62,15 +67,31 @@ class Denoiser(nn.Module):
         # print()
         # print("network input")
         # print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
-
+        
+        # Save the attention weights
+        
+        output = network(input * c_in, c_noise, cond, **additional_model_inputs)
+        print(f"denoising loop for timestep {Denoiser.timestep_counter}")
+        os.makedirs(f"featuremaps/{Denoiser.timestep_counter}", exist_ok=True)
+        if self.save_attention_weights:
+            for name, module in network.named_modules():
+                if isinstance(module, CrossAttention) and module.attention_score is not None:
+                    print(f"Saving attention weights for {name}")
+                    print(f"Attention score shape: {module.attention_score.shape}")
+                    import time
+                    start_time = time.time()
+                    torch.save(module.attention_score, f"featuremaps/{Denoiser.timestep_counter}/{name}.pt")
+                    end_time = time.time()
+                    print(f"Time taken to save attention weights: {end_time - start_time}")
+        Denoiser.timestep_counter += 1
         return (
-            network(input * c_in, c_noise, cond, **additional_model_inputs) * c_out
-            + input * c_skip
+            output * c_out+ input * c_skip
         )
     
 
 class SV3DDenoiser(Denoiser):
-    def __init__(self, scaling_config: Dict):
+    def __init__(self, scaling_config: Dict, blend_feature_maps: bool = False):
+        self.blend_feature_maps = blend_feature_maps
         super().__init__(scaling_config)
 
     def forward(
@@ -106,6 +127,13 @@ class SV3DDenoiser(Denoiser):
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
 
+        if self.blend_feature_maps:
+            for name, module in network.named_modules():
+                if isinstance(module, CrossAttention):
+                    if 'time' in name: #TODO: cleaner code..
+                        continue
+                    module.previous_feature_map = torch.load(f"featuremaps/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
+        
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)
         return network_output * c_out + input * c_skip

@@ -9,6 +9,8 @@ src
 model_output/
 dataset_fanta/
 notebook
+featuremaps/
 
 __pycache__/
 *.pyc
+objaverse_1.0_1000_without_white.zip

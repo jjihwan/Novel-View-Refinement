@@ -475,7 +475,6 @@ class VideoUNet(nn.Module):
         # print("y", y.dtype)
         # print("num_video_frames", num_video_frames)
         # print("image_only_indicator", image_only_indicator.dtype)
-
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         # if t_emb.dtype != self.time_embed[0].weight.dtype:
         #     print("converting t_emb to", self.time_embed[0].weight.dtype)

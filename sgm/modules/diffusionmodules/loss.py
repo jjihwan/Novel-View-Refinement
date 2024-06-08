@@ -17,6 +17,7 @@ class StandardDiffusionLoss(nn.Module):
         loss_type: str = "l2",
         offset_noise_level: float = 0.0,
         batch2model_keys: Optional[Union[str, List[str]]] = None,
+        discretization_config: dict = None,
     ):
         super().__init__()
 
@@ -38,7 +39,11 @@ class StandardDiffusionLoss(nn.Module):
             batch2model_keys = [batch2model_keys]
 
         self.batch2model_keys = set(batch2model_keys)
-
+        
+        if discretization_config is not None:
+            self.discretization = instantiate_from_config(discretization_config)
+        else:
+            self.discretization = None
     def get_noised_input(
         self, sigmas_bc: torch.Tensor, noise: torch.Tensor, input: torch.Tensor
     ) -> torch.Tensor:
@@ -68,7 +73,13 @@ class StandardDiffusionLoss(nn.Module):
             key: batch[key] for key in self.batch2model_keys.intersection(batch)
         }
         sigmas = self.sigma_sampler(input.shape[0]).to(input)
-
+        if self.discretization is not None:
+            discretized_sigmas = self.discretization(50, device=input.device) #TODO: make it configurable
+            #Find the sigma in the discretized sigmas that is closest to the sampled sigma
+            timestep = torch.argmin(torch.abs(discretized_sigmas - sigmas))
+            denoiser.timestep = timestep #TODO: bad coding, we are making an attribute outside the class
+            sigmas = discretized_sigmas[timestep].unsqueeze(0)
+            # breakpoint()
         noise = torch.randn_like(input)
         if self.offset_noise_level > 0.0:
             offset_shape = (

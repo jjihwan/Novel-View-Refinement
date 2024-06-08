@@ -283,6 +283,7 @@ class CrossAttention(nn.Module):
         
         self.blend_attention = blend_attention
         self.save_attention = save_attention
+        self.attention_score = None
         
         if self.blend_attention:
             self.permutation_mat = nn.Linear(21, 21, bias=False)
@@ -298,6 +299,9 @@ class CrossAttention(nn.Module):
             self.blend = nn.Linear(21, 21, bias=None)
             identity_matrix = torch.eye(21)
             self.blend.weight.data = nn.Parameter(identity_matrix)
+        else:
+            self.permutation_mat = None
+            self.blend = None
             
     def get_attention_score(self, q, k, mask=None):
         attn_score = torch.einsum("b h i d, b h j d -> b h i j", q, k) * self.scale
@@ -361,27 +365,68 @@ class CrossAttention(nn.Module):
 
         out = einsum('b i j, b j d -> b i d', sim, v)
         """
+        
+        is_spatial = (q.shape[0] % 21 == 0)
         ## new
         with sdp_kernel(**BACKEND_MAP[self.backend]):
-            print("dispatching into backend", self.backend, "q/k/v shape: ", q.shape, k.shape, v.shape)
-            if self.save_attention and (q.shape[0] % 21 == 0): #TODO: make the code more general
-                #first let's only save the spatial attentions
-                attention_score = self.get_attention_score(q, k, mask).detach().to("cpu")
-                print("saving attention", CrossAttention.attention_counter)
-                torch.save(attention_score, f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
+            # print("dispatching into backend", self.backend, "q/k/v shape: ", q.shape, k.shape, v.shape)
+            # if self.save_attention and (q.shape[0] % 21 == 0) and (k.shape[2] == 1): #TODO: make the code more general
+            #     bsz = q.shape[0] // 21
                 
-            if self.blend_attention and (q.shape[0] % 21 == 0): #TODO: make the code more general
-                previous_attn_weights = torch.load(f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
-                new_attention_score = self.permutation_mat(previous_attn_weights) + self.blend(self.get_attention_score(q, k, mask))
-                out = torch.einsum("b n i j, b n j d -> b n i d", new_attention_score, v)
-            else:
-                out = F.scaled_dot_product_attention(
+                
+            #     #first let's only save the spatial cross attentions
+                    
+                
+            #     attention_score = self.get_attention_score(q, k, mask).detach().to("cpu")
+            #     if bsz > 1:
+            #         _, conditional_attention_score = torch.chunk(attention_score, 2, dim=0)
+            #     print("saving attention", CrossAttention.attention_counter)
+            #     self.attention_score = conditional_attention_score
+            #     # torch.save(attention_score, f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
+                
+            # if self.blend_attention and (q.shape[0] % 21 == 0): #TODO: make the code more general
+            #     previous_attn_weights = torch.load(f"attn_weights/attention_score_{CrossAttention.attention_counter}.pt")
+            #     new_attention_score = self.permutation_mat(previous_attn_weights) + self.blend(self.get_attention_score(q, k, mask))
+            #     out = torch.einsum("b n i j, b n j d -> b n i d", new_attention_score, v)
+            # else:
+            #     out = F.scaled_dot_product_attention(
+            #         q, k, v, attn_mask=mask
+            #     )  # scale is dim_head ** -0.5 per default
+            
+            #Code for feature map fusion, here we abuse the terminology of attention score
+            
+                
+
+            out = F.scaled_dot_product_attention(
                     q, k, v, attn_mask=mask
                 )  # scale is dim_head ** -0.5 per default
 
         del q, k, v
-        out = rearrange(out, "b h n d -> b n (h d)", h=h)
 
+        out = rearrange(out, "b h n d -> b n (h d)", h=h)
+        if self.save_attention and is_spatial: #TODO: make the code more general
+            _, conditional_feature_map = torch.chunk(out, 2, dim=0)
+            self.attention_score = conditional_feature_map.detach().to("cpu")
+            print("saving feature map", CrossAttention.attention_counter)
+        if self.blend_attention and is_spatial: #TODO: make the code more general
+            # print(f"blending feature map {CrossAttention.attention_counter}")
+            previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(False) #gradient doesn't flow through the previous feature map
+            # print(f'loaded previous feature map with shape {previous_feature_map.shape}')
+            previous_feature_map_t = previous_feature_map.transpose(0, 2).contiguous()
+            out_t = out.transpose(0, 2).contiguous()
+            
+            # Apply permutation_mat and blend using the forward method
+            permuted_feature_map_t = self.permutation_mat(previous_feature_map_t)
+            blended_out_t = self.blend(out_t)
+            
+            # Transpose back to the original shape
+            permuted_feature_map = permuted_feature_map_t.transpose(0, 2).contiguous()
+            blended_out = blended_out_t.transpose(0, 2).contiguous()
+            
+            # Sum the results
+            out = permuted_feature_map + blended_out
+            # out = self.permutation_mat(previous_feature_map) + self.blend(out)
+        
         if additional_tokens is not None:
             # remove additional token
             out = out[:, n_tokens_to_mask:]
