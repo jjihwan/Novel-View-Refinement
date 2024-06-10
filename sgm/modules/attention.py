@@ -307,7 +307,11 @@ class CrossAttention(nn.Module):
             self.curr_feature_mixin.weight.data[:,] = nn.Parameter(torch.Tensor([[0.0, 1.0, 0.0]]))
             
             #blending the features
-            self.blend = nn.Parameter(torch.Tensor(torch.ones(21,1,1)) * 0.5)
+            first_half = torch.linspace(0, 1, 11).unsqueeze(1).unsqueeze(1)
+            second_half = torch.linspace(1, 0, 11).unsqueeze(1).unsqueeze(1)
+            scaling = torch.cat([first_half, second_half[1:]], dim=0)
+            
+            self.blend = nn.Parameter(torch.Tensor(torch.ones(21,1,1)) * scaling)
         else:
             self.permutation_mat = None
             self.prev_feature_mixin = None

@@ -107,8 +107,7 @@ class Denoiser(nn.Module):
 
 class SV3DDenoiser(Denoiser):
     def __init__(self, scaling_config: Dict, blend_feature_maps: bool = False):
-        self.blend_feature_maps = blend_feature_maps
-        super().__init__(scaling_config)
+        super().__init__(scaling_config, blend_feature_maps=blend_feature_maps)
 
     def forward(
         self,
@@ -142,7 +141,6 @@ class SV3DDenoiser(Denoiser):
         sigma = append_dims(sigma, input.ndim)
         c_skip, c_out, c_in, c_noise = self.scaling(sigma)
         c_noise = self.possibly_quantize_c_noise(c_noise.reshape(sigma_shape))
-
         if self.blend_feature_maps:
             for name, module in network.named_modules():
                 if isinstance(module, CrossAttention):
@@ -150,7 +148,6 @@ class SV3DDenoiser(Denoiser):
                         continue
                     video_path = self.video_path[0]
                     data_name = video_path.split("/")[1]
-                    # breakpoint()
                     module.previous_feature_map = torch.load(f"featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         
         input.requires_grad = True
