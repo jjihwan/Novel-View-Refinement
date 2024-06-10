@@ -84,11 +84,11 @@ class DiffusionEngine(pl.LightningModule):
             self.init_from_ckpt(ckpt_path)
             
         # freeze the model weights
-        # for name, param in self.model.named_parameters():
-        #     if "blend" not in name and "mixin" not in name:
-        #         param.requires_grad = False
-        #     else:
-        #         param.requires_grad = True
+        for name, param in self.model.named_parameters():
+            if "blend" not in name and "mixin" not in name:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
         self.en_and_decode_n_samples_a_time = en_and_decode_n_samples_a_time
 
     def init_from_ckpt(

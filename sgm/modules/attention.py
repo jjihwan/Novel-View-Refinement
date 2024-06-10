@@ -422,12 +422,12 @@ class CrossAttention(nn.Module):
         if self.blend_attention and is_spatial: #TODO: make the code more general
             # print(f"blending feature map {CrossAttention.attention_counter}")
             # TODO: result of bad coding.. (self.previous_feature_map)
-            previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(False) #gradient doesn't flow through the previous feature map
+            previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(True) #gradient doesn't flow through the previous feature map
             # print(f'loaded previous feature map with shape {previous_feature_map.shape}')
             previous_feature_map = rearrange(previous_feature_map, "f hw c -> hw c f")
             self.permutation_mat = self.permutation_mat.to(out.device).requires_grad_(False)
             permuted_previous_feature_map = previous_feature_map @ self.permutation_mat
-            breakpoint()
+            # breakpoint()
             mixed_permuted_previous_feature_map = self.prev_feature_mixin(permuted_previous_feature_map)
             mixed_permuted_previous_feature_map = rearrange(mixed_permuted_previous_feature_map, "hw c f -> f hw c")
             
@@ -442,7 +442,7 @@ class CrossAttention(nn.Module):
             # remove additional token
             out = out[:, n_tokens_to_mask:]
         
-        breakpoint()
+        # breakpoint()
         return self.to_out(out)
 
 
@@ -673,13 +673,14 @@ class BasicTransformerBlock(nn.Module):
             )
             + x
         )
-        breakpoint()
+        # breakpoint()
         x = (
             self.attn2(
                 self.norm2(x), context=context, additional_tokens=additional_tokens
             )
             + x
         )
+        # breakpoint()
         x = self.ff(self.norm3(x)) + x
         return x
 

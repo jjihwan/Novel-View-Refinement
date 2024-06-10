@@ -142,6 +142,7 @@ class SV3DDenoiser(Denoiser):
                     data_name = video_path.split("/")[1]
                     module.previous_feature_map = torch.load(f"featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         
+        input.requires_grad = True
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)
         
