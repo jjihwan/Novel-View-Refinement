@@ -216,7 +216,7 @@ def sample(
                     return model.denoiser(
                         model.model, input, sigma, c, **additional_model_inputs
                     )
-
+                model.denoiser.image_path = input_img_path #TODO: bad coding
                 samples_z = model.sampler(denoiser, randn, cond=c, uc=uc)
                 model.en_and_decode_n_samples_a_time = decoding_t
                 samples_x = model.decode_first_stage(samples_z)

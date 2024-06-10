@@ -266,6 +266,7 @@ class CrossAttention(nn.Module):
         save_attention=False,
     ):
         super().__init__()
+        # breakpoint()
         inner_dim = dim_head * heads
         context_dim = default(context_dim, query_dim)
 
@@ -286,21 +287,31 @@ class CrossAttention(nn.Module):
         self.attention_score = None
         
         if self.blend_attention:
-            self.permutation_mat = nn.Linear(21, 21, bias=False)
+            
             perm = []
             for i in range(21):
                 vec = torch.zeros(21)
                 vec[i - 10] = 1.0
                 perm.append(vec)
             
-            perm = torch.stack(perm)
-            self.permutation_mat.weight.data = nn.Parameter(perm)
-    
-            self.blend = nn.Linear(21, 21, bias=None)
-            identity_matrix = torch.eye(21)
-            self.blend.weight.data = nn.Parameter(identity_matrix)
+            self.permutation_mat = torch.stack(perm).requires_grad_(False)
+            #conv for previous feature mixing across [f-1, f, f+1]
+            self.prev_feature_mixin = nn.Conv1d(in_channels=inner_dim, out_channels=inner_dim,
+                                           kernel_size=3, padding=1, padding_mode='circular',
+                                           bias=False, groups=inner_dim)
+            self.prev_feature_mixin.weight.data[:,] = nn.Parameter(torch.Tensor([[0.0, 1.0, 0.0]]))
+            #conv for current feature mixing across [f-1, f, f+1]
+            self.curr_feature_mixin = nn.Conv1d(in_channels=inner_dim, out_channels=inner_dim,
+                                           kernel_size=3, padding=1, padding_mode='circular',
+                                           bias=False, groups=inner_dim)
+            self.curr_feature_mixin.weight.data[:,] = nn.Parameter(torch.Tensor([[0.0, 1.0, 0.0]]))
+            
+            #blending the features
+            self.blend = nn.Parameter(torch.Tensor(torch.ones(21,1,1)) * 0.5)
         else:
             self.permutation_mat = None
+            self.prev_feature_mixin = None
+            self.curr_feature_mixin = None
             self.blend = None
             
     def get_attention_score(self, q, k, mask=None):
@@ -409,24 +420,24 @@ class CrossAttention(nn.Module):
             self.attention_score = conditional_feature_map.detach().to("cpu")
             print("saving feature map", CrossAttention.attention_counter)
         if self.blend_attention and is_spatial: #TODO: make the code more general
+            # breakpoint()
             # print(f"blending feature map {CrossAttention.attention_counter}")
+            # TODO: result of bad coding.. (self.previous_feature_map)
             previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(False) #gradient doesn't flow through the previous feature map
             # print(f'loaded previous feature map with shape {previous_feature_map.shape}')
-            previous_feature_map_t = previous_feature_map.transpose(0, 2).contiguous()
-            out_t = out.transpose(0, 2).contiguous()
+            previous_feature_map = rearrange(previous_feature_map, "f hw c -> hw c f")
+            self.permutation_mat = self.permutation_mat.to(out.device).requires_grad_(False)
+            permuted_previous_feature_map = previous_feature_map @ self.permutation_mat
+            mixed_permuted_previous_feature_map = self.prev_feature_mixin(permuted_previous_feature_map)
+            mixed_permuted_previous_feature_map = rearrange(mixed_permuted_previous_feature_map, "hw c f -> f hw c")
             
-            # Apply permutation_mat and blend using the forward method
-            permuted_feature_map_t = self.permutation_mat(previous_feature_map_t)
-            blended_out_t = self.blend(out_t)
-            
-            # Transpose back to the original shape
-            permuted_feature_map = permuted_feature_map_t.transpose(0, 2).contiguous()
-            blended_out = blended_out_t.transpose(0, 2).contiguous()
-            
+            current_feature_map = rearrange(out, "f hw c -> hw c f")
+            mixed_current_feature_map = self.curr_feature_mixin(current_feature_map)
+            mixed_current_feature_map = rearrange(mixed_current_feature_map, "hw c f -> f hw c")
             # Sum the results
-            out = permuted_feature_map + blended_out
+            self.blend = self.blend.to(out.device)
+            out = mixed_permuted_previous_feature_map * self.blend + mixed_current_feature_map * (1 - self.blend)
             # out = self.permutation_mat(previous_feature_map) + self.blend(out)
-        
         if additional_tokens is not None:
             # remove additional token
             out = out[:, n_tokens_to_mask:]

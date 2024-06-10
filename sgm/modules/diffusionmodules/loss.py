@@ -78,6 +78,7 @@ class StandardDiffusionLoss(nn.Module):
             #Find the sigma in the discretized sigmas that is closest to the sampled sigma
             timestep = torch.argmin(torch.abs(discretized_sigmas - sigmas))
             denoiser.timestep = timestep #TODO: bad coding, we are making an attribute outside the class
+            denoiser.video_path = batch["video_path"] #TODO: bad coding, we are making an attribute outside the class
             sigmas = discretized_sigmas[timestep].unsqueeze(0)
             # breakpoint()
         noise = torch.randn_like(input)

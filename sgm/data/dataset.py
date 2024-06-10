@@ -183,7 +183,6 @@ class VideoDataset(Dataset):
         image_only_indicator = torch.zeros(self.sample_frames)
         num_video_frames = self.sample_frames
         cond_sigmas = cond_sigmas.repeat(self.sample_frames)
-        
         output_dict= {'video_latent': video_latent, # latent
                 'cond_frames_without_noise': cond_frames_without_noise, # image
                 'cond_frames': cond_frames, # image
@@ -191,7 +190,8 @@ class VideoDataset(Dataset):
                 'polars_rad': self.polars_rad,
                 'azimuths_rad': self.azimuths_rad,
                 'image_only_indicator': image_only_indicator,
-                'num_video_frames': num_video_frames
+                'num_video_frames': num_video_frames,
+                'video_path': mp4_file,
                 }
         # print()
         # print("[dataloader]")

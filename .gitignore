@@ -4,13 +4,21 @@ dataset/
 dataset_origin/
 dataset_refined/
 
+assets/dataset
+assets/dataset_fb
+assets/classification
+
 logs/
 src
 model_output/
 dataset_fanta/
-notebook
+notebook/
 featuremaps/
 
 __pycache__/
 *.pyc
 objaverse_1.0_1000_without_white.zip
+
+
+### Remove plz!
+test.py

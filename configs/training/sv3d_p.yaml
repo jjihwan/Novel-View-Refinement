@@ -162,7 +162,7 @@ model:
 data:
   target: sgm.data.dataset.SV3DDataModuleFromConfig
   params:
-    data_root: dataset_fanta/
+    data_root: train_dataset
     batch_size: 1
     num_workers: 0
 
@@ -171,7 +171,7 @@ data:
 lightning: # lightning_config
   modelcheckpoint:
     params:
-      every_n_train_steps: 100
+      every_n_train_steps: 5
       save_on_train_epoch_end: False
       
   trainer: # trainer_config
@@ -179,6 +179,6 @@ lightning: # lightning_config
     benchmark: True
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
-    max_epochs: 200
+    max_epochs: 10
     # strategy: "deepspeed_stage_3"
     precision: '16-mixed'
