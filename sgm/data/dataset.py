@@ -91,7 +91,7 @@ class StableDataModuleFromConfig(LightningDataModule):
         return create_loader(self.test_datapipeline, **self.test_config.loader)
 
 class VideoDataset(Dataset):
-    def __init__(self, num_samples=None, width=576, height=576, sample_frames=21, data_root='dataset'):
+    def __init__(self, num_samples=None, width=576, height=576, sample_frames=21, data_root='dataset', skew=0):
         """
         Args:
             num_samples (int): Number of samples in the dataset.
@@ -115,6 +115,7 @@ class VideoDataset(Dataset):
         self.polars_rad = torch.tensor(self.polars_rad)
         self.azimuths_rad = torch.tensor(self.azimuths_rad)
 
+        self.skew = skew
 
 
     def __len__(self):
@@ -157,11 +158,12 @@ class VideoDataset(Dataset):
                 f"--dataset_path '{self.video_root}' does not contain any .mp4 files.")
 
         mp4_file = os.path.join(data_dirs[idx], "orbit_frame.mp4")
-        last_frame_path = os.path.join(data_dirs[idx], "orbit_frame_0020.png")
+        last_frame_path = os.path.join(data_dirs[idx], f"orbit_frame_00{20-self.skew}.png")
         latent_file = mp4_file.replace(".mp4", ".pt")
 
         video_latent = torch.load(latent_file)
-
+        video_latent = torch.roll(video_latent, shifts=-self.skew, dims=0)
+        
         # video = self.decord_read(mp4_file) # 0~255
         # video = torchvision.transforms.functional.resize(video, (self.height, self.width))
         # #normalize the video to range [-1,1]
@@ -207,14 +209,16 @@ class SV3DDataModuleFromConfig(LightningDataModule):
         data_root: str,
         batch_size: int,
         num_workers: int = 0,
+        skew: int = 0,
     ):
         super().__init__()
         self.data_root = data_root
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.skew = skew
 
     def setup(self, stage: str) -> None:
-        self.dataset = VideoDataset(data_root=self.data_root)
+        self.dataset = VideoDataset(data_root=self.data_root, skew=self.skew)
         # self.train_data, self.val_data = random_split(self.dataset, (int(1*len(self.dataset)), int(0*len(self.dataset))), generator=torch.Generator().manual_seed(0))
         self.train_data = self.dataset
         return DataLoader(self.train_data, batch_size=self.batch_size, sampler=RandomSampler(self.train_data), num_workers=self.num_workers)

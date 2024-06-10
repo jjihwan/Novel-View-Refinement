@@ -420,6 +420,8 @@ class CrossAttention(nn.Module):
             self.attention_score = conditional_feature_map.detach().to("cpu")
             print("saving feature map", CrossAttention.attention_counter)
         if self.blend_attention and is_spatial: #TODO: make the code more general
+            # breakpoint()
+            bsz = out.shape[0] // 21
             # print(f"blending feature map {CrossAttention.attention_counter}")
             # TODO: result of bad coding.. (self.previous_feature_map)
             previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(True) #gradient doesn't flow through the previous feature map
@@ -430,13 +432,17 @@ class CrossAttention(nn.Module):
             # breakpoint()
             mixed_permuted_previous_feature_map = self.prev_feature_mixin(permuted_previous_feature_map)
             mixed_permuted_previous_feature_map = rearrange(mixed_permuted_previous_feature_map, "hw c f -> f hw c")
+            if bsz > 1:
+                unconditional_mixed_permuted_previous_feature_map = torch.zeros_like(mixed_permuted_previous_feature_map)
+                mixed_permuted_previous_feature_map = torch.stack([unconditional_mixed_permuted_previous_feature_map, mixed_permuted_previous_feature_map], dim=0)
             
-            current_feature_map = rearrange(out, "f hw c -> hw c f")
+            current_feature_map = rearrange(out, "(b f) hw c -> (b hw) c f", b=bsz)
             mixed_current_feature_map = self.curr_feature_mixin(current_feature_map)
-            mixed_current_feature_map = rearrange(mixed_current_feature_map, "hw c f -> f hw c")
+            mixed_current_feature_map = rearrange(mixed_current_feature_map, "(b hw) c f -> b f hw c", b=bsz)
             # Sum the results
             self.blend = self.blend.to(out.device)
             out = mixed_permuted_previous_feature_map * self.blend + mixed_current_feature_map * (1 - self.blend)
+            out = rearrange(out, "b f hw c -> (b f) hw c")
             # out = self.permutation_mat(previous_feature_map) + self.blend(out)
         if additional_tokens is not None:
             # remove additional token

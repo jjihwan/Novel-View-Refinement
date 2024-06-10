@@ -165,13 +165,14 @@ data:
     data_root: dataset_fanta
     batch_size: 1
     num_workers: 0
+    skew: 10
 
 
 
 lightning: # lightning_config
   modelcheckpoint:
     params:
-      every_n_train_steps: 10
+      every_n_train_steps: 200
       save_on_train_epoch_end: False
       
   trainer: # trainer_config
@@ -179,6 +180,6 @@ lightning: # lightning_config
     benchmark: True
     num_sanity_val_steps: 0
     accumulate_grad_batches: 1
-    max_epochs: 10
+    max_epochs: 500
     # strategy: "deepspeed_stage_3"
     precision: '16-mixed'

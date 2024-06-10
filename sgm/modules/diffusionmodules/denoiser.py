@@ -14,12 +14,12 @@ from ..attention import CrossAttention
 
 class Denoiser(nn.Module):
     timestep_counter = 0
-    def __init__(self, scaling_config: Dict, save_attention_weights: bool = False):
+    def __init__(self, scaling_config: Dict, save_attention_weights: bool = False, blend_feature_maps: bool = False):
         super().__init__()
 
         self.scaling: DenoiserScaling = instantiate_from_config(scaling_config)
         self.save_attention_weights = save_attention_weights
-
+        self.blend_feature_maps = blend_feature_maps
     def possibly_quantize_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
         return sigma
 
@@ -68,16 +68,24 @@ class Denoiser(nn.Module):
         # print("network input")
         # print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
         
-        # Save the attention weights
+        # dataset_path = str(self.image_path).split("/")[0]
+        image_path = str(self.image_path).split("/")[1] #TODO: adjust path
         
+        # Save the attention weights
+        if self.blend_feature_maps:
+            for name, module in network.named_modules():
+                if isinstance(module, CrossAttention):
+                    if 'time' in name: #TODO: cleaner code..
+                        continue
+                    # breakpoint()
+                    module.previous_feature_map = torch.load(f"featuremaps/{image_path}/{Denoiser.timestep_counter}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         print(f"denoising loop for timestep {Denoiser.timestep_counter}")
         
-        # dataset_path = str(self.image_path).split("/")[0]
-        image_path = str(self.image_path).split("/")[-1].split(".")[0]
-        os.makedirs(f"featuremaps/{image_path}/{Denoiser.timestep_counter}", exist_ok=True)
-        print(f"Saving attention weights for featuremaps/{image_path}/{Denoiser.timestep_counter}")
+        
         if self.save_attention_weights:
+            os.makedirs(f"featuremaps/{image_path}/{Denoiser.timestep_counter}", exist_ok=True)
+            print(f"Saving attention weights for featuremaps/{image_path}/{Denoiser.timestep_counter}")
             for name, module in network.named_modules():
                 if isinstance(module, CrossAttention) and module.attention_score is not None:
                     # print(f"Saving attention weights for {name}")
@@ -87,6 +95,8 @@ class Denoiser(nn.Module):
                     torch.save(module.attention_score, f"featuremaps/{image_path}/{Denoiser.timestep_counter}/{name}.pt")
                     # end_time = time.time()
                     # print(f"Time taken to save attention weights: {end_time - start_time}")
+        
+        
         Denoiser.timestep_counter += 1
         if Denoiser.timestep_counter == 50:
             Denoiser.timestep_counter = 0
@@ -140,21 +150,22 @@ class SV3DDenoiser(Denoiser):
                         continue
                     video_path = self.video_path[0]
                     data_name = video_path.split("/")[1]
+                    # breakpoint()
                     module.previous_feature_map = torch.load(f"featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         
         input.requires_grad = True
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)
         
-        #For debugging, print out the weights
-        # for name, module in network.named_modules():
-        #     if isinstance(module, CrossAttention) and 'time' not in name:
-        #         # print("prev_feature_mixin")
-        #         # print(module.prev_feature_mixin.weight)
-        #         # print("curr_feature_mixin")
-        #         # print(module.curr_feature_mixin.weight)
-        #         print("blend")
-        #         print(module.blend)
+        # For debugging, print out the weights
+        for name, module in network.named_modules():
+            if isinstance(module, CrossAttention) and 'time' not in name:
+                # print("prev_feature_mixin")
+                # print(module.prev_feature_mixin.weight)
+                # print("curr_feature_mixin")
+                # print(module.curr_feature_mixin.weight)
+                print("blend")
+                print(module.blend)
         
         # for name, module in network.named_modules():
         #     if isinstance(module, CrossAttention) and 'time' not in name:
