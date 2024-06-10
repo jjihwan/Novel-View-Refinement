@@ -287,6 +287,7 @@ class SpatialVideoTransformer(SpatialTransformer):
                 x,
                 context=spatial_context,
             )
+            breakpoint()
 
             x_mix = x
             x_mix = x_mix + emb
@@ -303,4 +304,5 @@ class SpatialVideoTransformer(SpatialTransformer):
         if not self.use_linear:
             x = self.proj_out(x)
         out = x + x_in
+        breakpoint()
         return out

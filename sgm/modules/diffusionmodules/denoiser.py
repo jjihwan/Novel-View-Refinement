@@ -140,10 +140,29 @@ class SV3DDenoiser(Denoiser):
                         continue
                     video_path = self.video_path[0]
                     data_name = video_path.split("/")[1]
-                    module.previous_feature_map = torch.load(f"inference_dataset_back_featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
+                    module.previous_feature_map = torch.load(f"featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         
         network_output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         # print(network_output.shape, input.shape)
+        
+        #For debugging, print out the weights
+        # for name, module in network.named_modules():
+        #     if isinstance(module, CrossAttention) and 'time' not in name:
+        #         # print("prev_feature_mixin")
+        #         # print(module.prev_feature_mixin.weight)
+        #         # print("curr_feature_mixin")
+        #         # print(module.curr_feature_mixin.weight)
+        #         print("blend")
+        #         print(module.blend)
+        
+        # for name, module in network.named_modules():
+        #     if isinstance(module, CrossAttention) and 'time' not in name:
+        #         # print("prev_feature_mixin")
+        #         # print(module.prev_feature_mixin.weight)
+        #         # print("curr_feature_mixin")
+        #         # print(module.curr_feature_mixin.weight)
+        #         print(module.to_q.weight)
+
         return network_output * c_out + input * c_skip
     
         return (

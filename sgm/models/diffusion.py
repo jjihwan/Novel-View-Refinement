@@ -50,7 +50,9 @@ class DiffusionEngine(pl.LightningModule):
         self.model = get_obj_from_str(default(network_wrapper, OPENAIUNETWRAPPER))(
             model, compile_model=compile_model
         )
+        
 
+                
         self.denoiser = instantiate_from_config(denoiser_config)
         self.sampler = (
             instantiate_from_config(sampler_config)
@@ -80,7 +82,13 @@ class DiffusionEngine(pl.LightningModule):
 
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path)
-
+            
+        # freeze the model weights
+        # for name, param in self.model.named_parameters():
+        #     if "blend" not in name and "mixin" not in name:
+        #         param.requires_grad = False
+        #     else:
+        #         param.requires_grad = True
         self.en_and_decode_n_samples_a_time = en_and_decode_n_samples_a_time
 
     def init_from_ckpt(
@@ -173,7 +181,6 @@ class DiffusionEngine(pl.LightningModule):
         #         print(k, v.shape, v.dtype)
         #     else:
         #         print(k, v)
-        
         loss = self.loss_fn(self.model, self.denoiser, self.conditioner, x, batch)
         loss_mean = loss.mean()
         loss_dict = {"loss": loss_mean}
