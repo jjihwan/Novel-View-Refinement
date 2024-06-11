@@ -3,7 +3,7 @@ model:
   params:
     scale_factor: 0.18215
     disable_first_stage_autocast: True
-    ckpt_path: logs/2024-06-10T11-47-38_NVR-refined-data/checkpoints/last.ckpt
+    ckpt_path: logs/2024-06-10T21-57-59_onepoint_fulltuning/checkpoints/epoch=000399.ckpt
 
     denoiser_config:
       target: sgm.modules.diffusionmodules.denoiser.Denoiser

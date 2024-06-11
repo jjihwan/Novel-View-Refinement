@@ -24,3 +24,5 @@ objaverse_1.0_1000_without_white.zip
 ### Remove plz!
 test.py
 objaverse_1.0_100_without_anomaly.zip
+model_output/
+model_input/

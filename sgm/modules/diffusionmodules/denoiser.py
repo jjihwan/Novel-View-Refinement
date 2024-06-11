@@ -155,14 +155,14 @@ class SV3DDenoiser(Denoiser):
         # print(network_output.shape, input.shape)
         
         # For debugging, print out the weights
-        for name, module in network.named_modules():
-            if isinstance(module, CrossAttention) and 'time' not in name:
-                # print("prev_feature_mixin")
-                # print(module.prev_feature_mixin.weight)
-                # print("curr_feature_mixin")
-                # print(module.curr_feature_mixin.weight)
-                print("blend")
-                print(module.blend)
+        # for name, module in network.named_modules():
+        #     if isinstance(module, CrossAttention) and 'time' not in name:
+        #         # print("prev_feature_mixin")
+        #         # print(module.prev_feature_mixin.weight)
+        #         # print("curr_feature_mixin")
+        #         # print(module.curr_feature_mixin.weight)
+        #         print("blend")
+        #         print(module.blend)
         
         # for name, module in network.named_modules():
         #     if isinstance(module, CrossAttention) and 'time' not in name:

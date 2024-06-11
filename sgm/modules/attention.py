@@ -311,7 +311,7 @@ class CrossAttention(nn.Module):
             second_half = torch.linspace(1, 0, 11).unsqueeze(1).unsqueeze(1)
             scaling = torch.cat([first_half, second_half[1:]], dim=0)
             
-            self.blend = nn.Parameter(torch.Tensor(torch.ones(21,1,1)) * scaling)
+            self.blend = nn.Parameter(torch.Tensor(torch.ones(21,1,1) * scaling))
         else:
             self.permutation_mat = None
             self.prev_feature_mixin = None
@@ -428,7 +428,8 @@ class CrossAttention(nn.Module):
             bsz = out.shape[0] // 21
             # print(f"blending feature map {CrossAttention.attention_counter}")
             # TODO: result of bad coding.. (self.previous_feature_map)
-            previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(True) #gradient doesn't flow through the previous feature map
+            # breakpoint()
+            previous_feature_map = self.previous_feature_map.to(out.device).requires_grad_(True).float() #gradient doesn't flow through the previous feature map
             # print(f'loaded previous feature map with shape {previous_feature_map.shape}')
             previous_feature_map = rearrange(previous_feature_map, "f hw c -> hw c f")
             self.permutation_mat = self.permutation_mat.to(out.device).requires_grad_(False)
