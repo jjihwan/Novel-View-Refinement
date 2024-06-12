@@ -11,7 +11,7 @@ model:
         scaling_config:
           target: sgm.modules.diffusionmodules.denoiser_scaling.VScalingWithEDMcNoise
         save_attention_weights: False #turn it on to save attention weights, may lead to memory issues
-        blend_feature_maps: False #Used for blending Feature maps for NVR
+        blend_feature_maps: True #Used for blending Feature maps for NVR
 
     network_config:
       target: sgm.modules.diffusionmodules.video_model.VideoUNet
@@ -34,7 +34,7 @@ model:
         use_spatial_context: True
         merge_strategy: learned_with_images
         video_kernel_size: [3, 1, 1]
-        save_attention: False
+        save_attention: True
         blend_attention: False
 
     conditioner_config:

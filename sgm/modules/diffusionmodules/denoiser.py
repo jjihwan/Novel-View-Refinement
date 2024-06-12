@@ -69,7 +69,8 @@ class Denoiser(nn.Module):
         # print(input.shape, c_in.shape, c_noise.shape, c_out.shape, c_skip.shape)
         
         # dataset_path = str(self.image_path).split("/")[0]
-        image_path = str(self.image_path).split("/")[1] #TODO: adjust path
+        # image_path = str(self.image_path).split("/")[1] #TODO: adjust path
+        image_name = str(self.image_path).split("/")[-1].split(".")[0]
         
         # Save the attention weights
         if self.blend_feature_maps:
@@ -78,21 +79,21 @@ class Denoiser(nn.Module):
                     if 'time' in name: #TODO: cleaner code..
                         continue
                     # breakpoint()
-                    module.previous_feature_map = torch.load(f"featuremaps/{image_path}/{Denoiser.timestep_counter}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
+                    module.previous_feature_map = torch.load(f"featuremaps/{image_name}/{Denoiser.timestep_counter}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         output = network(input * c_in, c_noise, cond, **additional_model_inputs)
         print(f"denoising loop for timestep {Denoiser.timestep_counter}")
         
         
         if self.save_attention_weights:
-            os.makedirs(f"featuremaps/{image_path}/{Denoiser.timestep_counter}", exist_ok=True)
-            print(f"Saving attention weights for featuremaps/{image_path}/{Denoiser.timestep_counter}")
+            os.makedirs(f"featuremaps/{image_name}/{Denoiser.timestep_counter}", exist_ok=True)
+            print(f"Saving attention weights for featuremaps/{image_name}/{Denoiser.timestep_counter}")
             for name, module in network.named_modules():
                 if isinstance(module, CrossAttention) and module.attention_score is not None:
                     # print(f"Saving attention weights for {name}")
                     # print(f"Attention score shape: {module.attention_score.shape}")
                     # import time
                     # start_time = time.time()
-                    torch.save(module.attention_score, f"featuremaps/{image_path}/{Denoiser.timestep_counter}/{name}.pt")
+                    torch.save(module.attention_score, f"featuremaps/{image_name}/{Denoiser.timestep_counter}/{name}.pt")
                     # end_time = time.time()
                     # print(f"Time taken to save attention weights: {end_time - start_time}")
         
@@ -147,7 +148,7 @@ class SV3DDenoiser(Denoiser):
                     if 'time' in name: #TODO: cleaner code..
                         continue
                     video_path = self.video_path[0]
-                    data_name = video_path.split("/")[1]
+                    data_name = video_path.split("/")[-2]
                     module.previous_feature_map = torch.load(f"featuremaps/{data_name}/{self.timestep}/{name}.pt") #TODO: bad coding, we are making an attribute outside the class
         
         input.requires_grad = True
